@@ -1,70 +1,106 @@
 <script>
 	import ChartCanvas from "./ChartCanvas.svelte";
 	import { axisMoney, money } from "./format.js";
-	import { CONTEXT, FOCUS, INK, MUTED, UNFAVORABLE, axis, axisWindow, fade, text, valueAxisTicks } from "./chartTheme.js";
+	import { CONTEXT, FOCUS, INK, MUTED, UNFAVORABLE, axis, axisWindow, text, valueAxisTicks } from "./chartTheme.js";
 
 	export let steps = [];
 	export let zeroBased = false;
-	export let height = 300;
+	export let height = 320;
 
-	function anchorColor(step, truncated) {
-		const hex = step.role === "close" ? FOCUS : MUTED;
-		return truncated ? fade(hex) : hex;
+	const BAR_W = 36;
+
+	function isFlat(step) {
+		return step.role !== "open" && step.role !== "close" && Number(step.value) === 0;
 	}
 
 	function labelColor(step) {
 		if (step.role === "close") return FOCUS;
-		if (step.role !== "open" && step.value < 0) return UNFAVORABLE;
+		if (step.role === "open") return MUTED;
+		if (Number(step.value) < 0) return UNFAVORABLE;
 		return INK;
 	}
 
 	function labelText(step) {
-		if (step.role !== "open" && step.role !== "close" && Number(step.value) === 0) return "0.0";
+		if (isFlat(step)) return "0.0";
 		if (step.role === "open" || step.role === "close") return money(step.value);
 		return money(step.value, { signed: true });
 	}
 
+	function fadeBand(hex) {
+		const r = parseInt(hex.slice(1, 3), 16);
+		const g = parseInt(hex.slice(3, 5), 16);
+		const b = parseInt(hex.slice(5, 7), 16);
+		return {
+			type: "linear",
+			x: 0,
+			y: 0,
+			x2: 0,
+			y2: 1,
+			colorStops: [
+				{ offset: 0, color: hex },
+				{ offset: 1, color: `rgba(${r},${g},${b},0)` },
+			],
+		};
+	}
+
 	$: built = (() => {
 		let cursor = 0;
-		const bases = [];
-		const heights = [];
-		const totals = [];
-		for (const step of steps) {
+		const totals = steps.map((step) => {
 			if (step.role === "open" || step.role === "close") cursor = Number(step.value);
 			else cursor += Number(step.value);
-			totals.push(cursor);
-		}
+			return cursor;
+		});
 		const lo = Math.min(...totals);
 		const hi = Math.max(...totals);
-		const window = axisWindow(lo, hi, { zero: zeroBased });
+		const window = zeroBased ? axisWindow(0, hi, { zero: true }) : axisWindow(lo, hi, { floor: 0.4 });
 		const truncated = !zeroBased && window.min > 0;
+		const fadeY = window.min + 0.25 * (window.max - window.min);
+		const bases = [];
+		const fades = [];
+		const bodies = [];
 		steps.forEach((step, i) => {
-			const flat = step.role !== "open" && step.role !== "close" && Number(step.value) === 0;
-			if (flat) {
-				bases.push(totals[i]);
-				heights.push(0);
+			const value = Number(step.value);
+			if ((step.role === "open" || step.role === "close") && truncated) {
+				bases.push(window.min);
+				fades.push(Math.max(0, fadeY - window.min));
+				bodies.push(Math.max(0, value - fadeY));
 			} else if (step.role === "open" || step.role === "close") {
-				bases.push(truncated ? window.min : 0);
-				heights.push(truncated ? Number(step.value) - window.min : Number(step.value));
-			} else if (Number(step.value) >= 0) {
-				bases.push(totals[i] - Number(step.value));
-				heights.push(Number(step.value));
+				bases.push(0);
+				fades.push(0);
+				bodies.push(value);
+			} else if (isFlat(step)) {
+				bases.push(totals[i]);
+				fades.push(0);
+				bodies.push(0);
+			} else if (value >= 0) {
+				bases.push(totals[i] - value);
+				fades.push(0);
+				bodies.push(value);
 			} else {
 				bases.push(totals[i]);
-				heights.push(-Number(step.value));
+				fades.push(0);
+				bodies.push(-value);
 			}
 		});
+		const connectors = [];
+		let index = 0;
+		while (index < steps.length - 1) {
+			let next = index + 1;
+			while (next < steps.length - 1 && isFlat(steps[next])) next += 1;
+			connectors.push([index, next, totals[index]]);
+			index = next;
+		}
 		const zeros = steps
 			.map((step, i) => ({ step, total: totals[i] }))
-			.filter(({ step }) => step.role !== "open" && step.role !== "close" && Number(step.value) === 0);
-		return { bases, heights, totals, window, truncated, zeros };
+			.filter(({ step }) => isFlat(step));
+		return { bases, fades, bodies, totals, window, truncated, connectors, zeros };
 	})();
 
 	$: option = {
 		animation: false,
 		textStyle: text,
 		legend: { show: false },
-		grid: { left: 8, right: 12, top: 28, bottom: 8, containLabel: true },
+		grid: { left: 8, right: 16, top: 28, bottom: 8, containLabel: true },
 		xAxis: {
 			type: "category",
 			data: steps.map((step) => step.label),
@@ -83,6 +119,7 @@
 			{
 				type: "bar",
 				stack: "bridge",
+				barWidth: BAR_W,
 				data: built.bases,
 				itemStyle: { color: "transparent" },
 				emphasis: { disabled: true },
@@ -91,37 +128,72 @@
 			{
 				type: "bar",
 				stack: "bridge",
-				barMaxWidth: 36,
-				labelLayout: { moveOverlap: "shiftY" },
+				barWidth: BAR_W,
 				data: steps.map((step, i) => ({
-					value: built.heights[i],
+					value: built.fades[i],
 					itemStyle: {
 						color:
-							step.role === "open" || step.role === "close"
-								? anchorColor(step, built.truncated)
+							built.fades[i] > 0
+								? fadeBand(step.role === "close" ? FOCUS : MUTED)
+								: "transparent",
+					},
+				})),
+				silent: true,
+				emphasis: { disabled: true },
+			},
+			{
+				type: "bar",
+				stack: "bridge",
+				barWidth: BAR_W,
+				data: steps.map((step, i) => {
+					const below = step.role !== "open" && step.role !== "close" && Number(step.value) < 0;
+					const anchor = step.role === "open" || step.role === "close";
+					return {
+						value: built.bodies[i],
+						itemStyle: {
+							color: anchor
+								? step.role === "close"
+									? FOCUS
+									: MUTED
 								: Number(step.value) < 0
 									? UNFAVORABLE
 									: INK,
-					},
-					label: {
-						show: built.heights[i] > 0,
-						position: "top",
-						distance: 4,
-						formatter: () => labelText(step),
-						color: labelColor(step),
-						fontWeight: step.role === "close" ? 600 : 500,
-						fontFamily: "IBM Plex Sans, sans-serif",
-						fontSize: 12,
-					},
-				})),
+						},
+						label: {
+							show: built.bodies[i] > 0,
+							position: below ? "bottom" : "top",
+							distance: below ? 10 : 8,
+							formatter: () => labelText(step),
+							color: labelColor(step),
+							fontWeight: step.role === "close" ? 600 : 500,
+							fontFamily: "IBM Plex Sans, sans-serif",
+							fontSize: 12,
+						},
+					};
+				}),
 			},
 			{
-				type: "line",
-				data: built.totals,
-				symbol: "none",
+				type: "custom",
+				coordinateSystem: "cartesian2d",
 				silent: true,
-				lineStyle: { type: "dashed", color: CONTEXT, width: 1 },
 				z: 3,
+				data: built.connectors,
+				renderItem(params, api) {
+					const y = api.value(2);
+					const from = api.coord([api.value(0), y]);
+					const to = api.coord([api.value(1), y]);
+					const half = BAR_W / 2;
+					return {
+						type: "line",
+						shape: {
+							x1: from[0] + half,
+							y1: from[1],
+							x2: to[0] - half,
+							y2: to[1],
+						},
+						style: { stroke: CONTEXT, lineWidth: 1, lineDash: [3, 3] },
+					};
+				},
 			},
 			{
 				type: "scatter",

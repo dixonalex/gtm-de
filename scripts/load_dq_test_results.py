@@ -22,6 +22,9 @@ def model_name(node: dict) -> str | None:
     ]
     if len(names) == 1:
         return names[0]
+    marts = [name for name in names if name.startswith(("fct_", "rpt_"))]
+    if len(marts) == 1:
+        return marts[0]
     return None
 
 

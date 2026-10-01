@@ -1,16 +1,16 @@
 <script>
-	import { money, percent, verdict } from "./format.js";
+	import { RATE_BAND_PTS, money, percent, verdictRate } from "./format.js";
 
 	export let label = "";
 	export let period = "";
 	export let value = 0;
 	export let quota = 1;
-	export let band = "flow";
+	export let tickLabel = "quota";
 
 	$: attainment = quota ? Number(value) / Number(quota) : 0;
-	$: tone = verdict(attainment, 1, band, true);
+	$: tone = verdictRate(attainment, 1, true);
 	$: width = (Math.max(0, Math.min(attainment, 1.5)) / 1.5) * 100;
-	$: limit = band === "balance" ? 0.01 : 0.05;
+	$: limit = RATE_BAND_PTS / 100;
 	$: bandLeft = ((1 - limit) / 1.5) * 100;
 	$: bandWidth = ((2 * limit) / 1.5) * 100;
 	$: gap = Number(value) - Number(quota);
@@ -30,7 +30,7 @@
 	</div>
 	<div class="scale">
 		<span>0%</span>
-		<span class="plan">plan</span>
+		<span class="plan">{tickLabel}</span>
 		<span>150%</span>
 	</div>
 	<p class="line num" style="color: {tone.color}">{line}</p>

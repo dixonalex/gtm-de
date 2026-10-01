@@ -8,7 +8,7 @@
 	}
 </script>
 
-<div class="queue">
+<div class="queue" id="review">
 	<div class="head">
 		<span>Account A</span>
 		<span>Account B</span>
@@ -33,10 +33,12 @@
 			<div class="stake num">{money(row.arr)}</div>
 			<div class="decision">
 				{#if row.decision && row.decision !== "pending"}
-					<p class="who">{row.decision} · {row.who} · {dayLabel(row.when)}</p>
-					<button type="button">Undo</button>
+					<p class="who">
+						{row.decision} · {row.who} · {dayLabel(row.when)} ·
+						<button type="button">Undo</button>
+					</p>
 				{:else}
-					<p>{row.decisionLabel || "Undecided"}</p>
+					<a href={row.href || "#review"}>{row.decisionLabel || "Decide →"}</a>
 				{/if}
 			</div>
 		</article>
@@ -45,7 +47,7 @@
 
 <style>
 	.queue {
-		border-top: 1px solid var(--color-ink);
+		border-top: 0;
 	}
 	.head,
 	article {
@@ -102,6 +104,7 @@
 	.right {
 		text-align: right;
 	}
+	a,
 	button {
 		background: none;
 		border: 0;

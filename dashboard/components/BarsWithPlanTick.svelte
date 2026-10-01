@@ -1,7 +1,7 @@
 <script>
 	import ChartCanvas from "./ChartCanvas.svelte";
 	import { money, percent, verdict } from "./format.js";
-	import { FOCUS, INK, MUTED, axis, axisWindow, text, valueAxisTicks } from "./chartTheme.js";
+	import { FAVORABLE, FOCUS, INK, MUTED, UNFAVORABLE, axis, axisWindow, text, valueAxisTicks } from "./chartTheme.js";
 
 	export let rows = [];
 	export let band = "flow";
@@ -14,7 +14,7 @@
 		animation: false,
 		textStyle: text,
 		legend: { show: false },
-		grid: { left: 8, right: 16, top: 8, bottom: 8, containLabel: true },
+		grid: { left: 8, right: 228, top: 8, bottom: 8, containLabel: true },
 		xAxis: valueAxisTicks(scale, () => "", { labels: false }),
 		yAxis: {
 			type: "category",
@@ -33,10 +33,18 @@
 			{
 				type: "bar",
 				barWidth: 12,
+				labelLayout: { hideOverlap: false },
 				data: rows.map((row) => {
 					const tone = verdict(row.value, row.plan, band, higherIsBetter);
 					const delta = row.value - row.plan;
 					const share = row.plan ? row.value / row.plan : null;
+					const color = row.current
+						? FOCUS
+						: tone.state === "unfavorable"
+							? UNFAVORABLE
+							: tone.state === "favorable"
+								? FAVORABLE
+								: INK;
 					return {
 						value: Math.max(row.value, row.plan || 0),
 						itemStyle: { color: "transparent" },
@@ -44,7 +52,7 @@
 							show: true,
 							position: "right",
 							distance: 8,
-							color: row.current ? FOCUS : tone.color,
+							color,
 							fontSize: 12,
 							fontWeight: row.current ? 600 : 400,
 							fontFamily: "IBM Plex Sans, sans-serif",

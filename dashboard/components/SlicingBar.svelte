@@ -17,7 +17,7 @@
 </script>
 
 <div class="bar">
-	<label>
+	<label class="period">
 		<span class="sr">Period</span>
 		<select bind:value={period}>
 			{#each periods as item}
@@ -26,7 +26,7 @@
 		</select>
 	</label>
 	<span class="vs">vs</span>
-	<label>
+	<label class="compare">
 		<span class="sr">Compare</span>
 		<select bind:value={compare}>
 			{#each compares as item}
@@ -36,8 +36,8 @@
 	</label>
 	<span class="divider"></span>
 	{#each localFilters as filter, index}
-		<label class:active={filter.active}>
-			<span class="sr">{filter.label}</span>
+		<label class="filter" class:active={filter.active}>
+			<span class="field">{filter.label}</span>
 			<select
 				bind:value={filter.value}
 				on:change={() => {
@@ -70,10 +70,22 @@
 	label {
 		display: inline-flex;
 		align-items: center;
-		border: 1px solid var(--color-ink);
+		border: 1px solid var(--color-rule);
 		background: var(--color-ground);
 		height: 32px;
 		padding: 0 8px;
+	}
+	label.period {
+		border-color: var(--color-ink);
+	}
+	label.period select {
+		font-size: 15px;
+		font-weight: 500;
+	}
+	.field {
+		margin-right: 6px;
+		font-size: 14px;
+		color: var(--color-ink);
 	}
 	label.active {
 		border-color: var(--color-focus);

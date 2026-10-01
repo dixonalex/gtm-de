@@ -1,5 +1,5 @@
 <script>
-	import { formatDelta, formatValue, percent, verdict } from "./format.js";
+	import { formatDelta, formatValue, percent, sameYearLabel, verdict, verdictRate } from "./format.js";
 
 	export let label = "";
 	export let period = "";
@@ -11,7 +11,7 @@
 	export let band = "balance";
 	export let higherIsBetter = true;
 
-	$: tone = verdict(value, plan, band, higherIsBetter);
+	$: tone = format === "percent" ? verdictRate(value, plan, higherIsBetter) : verdict(value, plan, band, higherIsBetter);
 	$: vsPlan =
 		format === "money" && plan != null && plan !== ""
 			? `${formatDelta(value, plan, format)} · ${percent(Number(value) / Number(plan))}`
@@ -19,7 +19,7 @@
 	$: vsPrior =
 		prior == null || prior === ""
 			? ""
-			: formatDelta(value, prior, format).replace("vs plan", `vs ${priorLabel}`);
+			: formatDelta(value, prior, format).replace("vs plan", `vs ${sameYearLabel(priorLabel, period)}`);
 </script>
 
 <article class="tile">

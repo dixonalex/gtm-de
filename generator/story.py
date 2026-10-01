@@ -15,11 +15,26 @@ AUG_END = dt.date(2026, 8, 31)
 NOW = dt.datetime(2026, 9, 30, 17, 5)
 
 
+_ID_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+
 def story_sfid(prefix: str, n: int) -> str:
-    body = f"{prefix}STORY{n:07d}"
-    if len(body) != 15:
-        raise AssertionError(body)
-    return body + sf_suffix(body)
+    """18-char Salesforce id. The 15-char body is the key prefix plus 12
+    mixed-case characters, then the real case-safe checksum. No STORY marker."""
+    if len(prefix) != 3:
+        raise AssertionError(prefix)
+    salt = 0
+    while salt < 64:
+        x = (n * 0x9E3779B1 + 0x85EBCA6B + salt * 0x6C62272E) & 0xFFFFFFFF
+        chars = []
+        for i in range(12):
+            x = (x * 1664525 + 1013904223 + i * 97) & 0xFFFFFFFF
+            chars.append(_ID_ALPHABET[x % 62])
+        body = prefix + "".join(chars)
+        if len(body) == 15 and "STORY" not in body.upper():
+            return body + sf_suffix(body)
+        salt += 1
+    raise AssertionError(f"no id for {prefix} {n}")
 
 
 def reserved_account_names() -> set[str]:

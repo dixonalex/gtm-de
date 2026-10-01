@@ -130,8 +130,8 @@
 <section class="group">
 	<h2>Bullet KPI</h2>
 	<div class="bullets">
-		<BulletKpi label="Won QTD" period="Q3 2026" value={quota * 0.98} quota={quota} band="flow" />
-		<BulletKpi label="Won QTD" period="Q3 2026" value={11525964} quota={quota} band="flow" />
+		<BulletKpi label="Won QTD" period="Q3 2026" value={quota * 0.99} {quota} />
+		<BulletKpi label="Won QTD" period="Q3 2026" value={11525964} {quota} />
 	</div>
 </section>
 
@@ -204,7 +204,7 @@
 		rows={[
 			{
 				name: "Northwind Logistics",
-				id: "006STORY0000201YHA",
+				id: "006hlYmXJ4ibnKcANI",
 				description: "Won, no order",
 				age: 9,
 				sla: 3,
@@ -214,7 +214,7 @@
 			},
 			{
 				name: "Halvorsen Group",
-				id: "801STORY0000202YHA",
+				id: "8010k1LIC5z6sRbAOI",
 				description: "Invoice unmatched to order",
 				age: 6,
 				sla: 5,
@@ -224,7 +224,7 @@
 			},
 			{
 				name: "Ostrander Freight",
-				id: "801STORY0000203YHA",
+				id: "801JjYy312CXtcaIBD",
 				description: "Cancelled order still invoicing",
 				age: 4,
 				sla: 2,
@@ -234,7 +234,7 @@
 			},
 			{
 				name: "Larkspur Energy",
-				id: "006STORY0000204YHA",
+				id: "006ci1bouzT2ujZAAR",
 				description: "Won, no order",
 				age: 2,
 				sla: 3,
@@ -244,7 +244,7 @@
 			},
 			{
 				name: "Corvid Robotics",
-				id: "006STORY0000205YHA",
+				id: "006vhUAZjwkXvqYAHS",
 				description: "Amount ≠ sum of line items",
 				age: 0,
 				sla: 3,
@@ -254,7 +254,7 @@
 			},
 			{
 				name: "Tidewater Health",
-				id: "801STORY0000606YHA",
+				id: "801IgHhS0thEK9zIFG",
 				description: "Reduction order awaiting approval",
 				age: 1,
 				sla: 5,
@@ -264,7 +264,7 @@
 			},
 			{
 				name: "Pinecrest Media",
-				id: "801STORY0000207YHA",
+				id: "801XjQM1RuET18WILT",
 				description: "Invoice unmatched to order",
 				age: 3,
 				sla: 5,
@@ -274,7 +274,7 @@
 			},
 			{
 				name: "Saltmarsh Bank",
-				id: "801STORY0000608YHA",
+				id: "801qeDtyinFEQRxABP",
 				description: "Reduction order awaiting approval",
 				age: 2,
 				sla: 5,
@@ -284,7 +284,7 @@
 			},
 			{
 				name: "Kestrel Bio",
-				id: "006STORY0000209YHA",
+				id: "0069hMYX9omT7QUAH0",
 				description: "Amount ≠ sum of line items",
 				age: 2,
 				sla: 3,
@@ -294,7 +294,7 @@
 			},
 			{
 				name: "Ferrow Studios",
-				id: "801STORY0000210YHA",
+				id: "801SgpBI2lzu8XTIGY",
 				description: "Invoice unmatched to order",
 				age: 1,
 				sla: 5,
@@ -311,23 +311,30 @@
 	<ReviewQueue
 		rows={[
 			{
-				left: { name: "Harbor Health", domain: "harborhealth.example", country: "US", id: "001…a" },
-				right: { name: "Harbor Health Inc", domain: "harborhealth.example", country: "US", id: "001…b" },
-				forSignals: "Same domain, same country",
-				againstSignals: "Different owner",
-				arr: 412000,
+				left: { name: "Meridian Analytics Inc", domain: "meridiananalyticsinc.example", country: "US", id: "001jlkEbX6YjxQqAKJ" },
+				right: { name: "Meridan Analytics", domain: "meridananalytics-other.example", country: "US", id: "0012kDrMM3pE2XpANK" },
+				forSignals: "Similar name, same country",
+				againstSignals: "Different domain",
+				arr: 310000,
 				decision: "pending",
-				decisionLabel: "Needs a decision",
 			},
 			{
-				left: { name: "Kestrel Bio", domain: "kestrelbio.example", country: "US", id: "001…c" },
-				right: { name: "Kestrel Biosciences", domain: "kestrel.io", country: "US", id: "001…d" },
+				left: { name: "Brightwater Systems GmbH", domain: "brightwatersystemsgmbh.example", country: "DE", id: "001LjgQ7F06f3ioIKA" },
+				right: { name: "Brightwater Systems", domain: "brightwater-systems.example", country: "DE", id: "001ei93s4xNA4pnAAD" },
+				forSignals: "Same normalized name, same country",
+				againstSignals: "Different domain",
+				arr: 190000,
+				decision: "pending",
+			},
+			{
+				left: { name: "Halvorsen Group", domain: "halvorsengroup.example", country: "US", id: "0010k1LIC5z6sRbAOI" },
+				right: { name: "Halverson Group", domain: "halverson-group.example", country: "US", id: "001Gg5FOmvr6A7lIGE" },
 				forSignals: "Similar name",
 				againstSignals: "Different domain",
-				arr: 95000,
-				decision: "Reject",
-				who: "A. Chen",
-				when: "2026-09-12",
+				arr: 186000,
+				decision: "Kept separate",
+				who: "A. Dixon",
+				when: "2026-09-28",
 			},
 		]}
 	/>

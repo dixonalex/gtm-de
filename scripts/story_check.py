@@ -234,8 +234,10 @@ def main() -> None:
 
     jpy = con.execute(
         """
-        select sum(variance_usd) from marts.rpt_bookings_to_billings
-        where order_id like '801STORY000050%'
+        select sum(r.variance_usd)
+        from marts.rpt_bookings_to_billings r
+        join staging.stg_salesforce__account a on r.account_id = a.account_id
+        where a.name like 'Yen Defect%'
         """
     ).fetchone()[0]
     check("JPY mismatch", abs(jpy - 100_000) < 100, f"${jpy:,.2f}")

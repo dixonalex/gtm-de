@@ -33,8 +33,12 @@
 	$: last = actual.length - 1;
 	$: delta = last >= 0 ? actual[last] - (plan[last] || 0) : 0;
 	$: outside = last >= 0 && gapOutside(delta, plan[last]);
-	$: level = axisWindow(Math.min(...actual, ...plan), Math.max(...actual, ...plan), { cover: true });
-	$: gapAxis = axisWindow(Math.min(...gaps, 0), Math.max(...gaps, 0), { cover: true });
+	$: level = axisWindow(Math.min(...actual, ...plan), Math.max(...actual, ...plan));
+	$: gapAxis = (() => {
+		const window = axisWindow(Math.min(...gaps, 0), Math.max(...gaps, 0));
+		const step = window.ticks.length > 1 ? Math.abs(window.ticks[1] - window.ticks[0]) : 1;
+		return { ...window, min: window.ticks[0] - step * 0.55 };
+	})();
 	$: eventAt = event ? shortMonth(event.at) : null;
 
 	$: option = {
@@ -43,10 +47,10 @@
 		legend: { show: false },
 		grid: showGap
 			? [
-					{ left: 56, right: 148, top: 12, height: "48%" },
-					{ left: 56, right: 148, top: "68%", height: "16%" },
+					{ left: 56, right: 168, top: 48, height: "44%" },
+					{ left: 56, right: 168, top: "70%", height: "16%" },
 				]
-			: [{ left: 56, right: 148, top: 16, bottom: 28 }],
+			: [{ left: 56, right: 168, top: 48, bottom: 28 }],
 		xAxis: (showGap ? [0, 1] : [0]).map((gridIndex) => ({
 			type: "category",
 			gridIndex,
@@ -83,38 +87,6 @@
 				showSymbol: true,
 				lineStyle: { width: 2, color: FOCUS },
 				itemStyle: { color: FOCUS },
-				endLabel: {
-					show: true,
-					distance: 10,
-					formatter: () =>
-						`{plan|Plan ${money(plan[last])}}\n{act|Actual ${money(actual[last])}}\n{gap|${money(delta, { signed: true })} vs plan}`,
-					rich: {
-						plan: {
-							color: CONTEXT,
-							fontSize: 12,
-							fontWeight: 400,
-							lineHeight: 16,
-							align: "left",
-							fontFamily: "IBM Plex Sans, sans-serif",
-						},
-						act: {
-							color: FOCUS,
-							fontSize: 13,
-							fontWeight: 600,
-							lineHeight: 18,
-							align: "left",
-							fontFamily: "IBM Plex Sans, sans-serif",
-						},
-						gap: {
-							color: outside ? UNFAVORABLE : MUTED,
-							fontSize: 12,
-							fontWeight: 400,
-							lineHeight: 16,
-							align: "left",
-							fontFamily: "IBM Plex Sans, sans-serif",
-						},
-					},
-				},
 				markLine: event
 					? {
 							symbol: "none",
@@ -124,12 +96,60 @@
 								fontSize: 11,
 								position: "end",
 								rotate: 0,
-								distance: 4,
+								distance: 8,
 							},
 							lineStyle: { type: "dotted", color: MUTED, width: 1 },
 							data: [{ xAxis: eventAt }],
 						}
 					: undefined,
+			},
+			{
+				type: "custom",
+				coordinateSystem: "cartesian2d",
+				silent: true,
+				z: 10,
+				clip: false,
+				data: [[last, plan[last], actual[last]]],
+				renderItem(params, api) {
+					const at = api.coord([api.value(0), api.value(1)]);
+					const planY = at[1];
+					const actY = api.coord([api.value(0), api.value(2)])[1];
+					const x = at[0] + 14;
+					const upper = Math.min(planY, actY);
+					const lower = Math.max(planY, actY);
+					const lineH = 16;
+					// The text anchor is the vertical center, so pad by half a line.
+					const planTop = upper - 6 - lineH;
+					const actualTop = lower + 6 + lineH / 2;
+					const rows = [
+						{ text: `Plan ${money(plan[last])}`, y: planTop, fill: CONTEXT, weight: 400, size: 12 },
+						{ text: `Actual ${money(actual[last])}`, y: actualTop, fill: FOCUS, weight: 600, size: 13 },
+						{
+							text: `${money(delta, { signed: true })} vs plan`,
+							y: actualTop + lineH,
+							fill: outside ? UNFAVORABLE : MUTED,
+							weight: 400,
+							size: 12,
+						},
+					];
+					return {
+						type: "group",
+						children: rows.map((row) => ({
+							type: "text",
+							style: {
+								x,
+								y: row.y,
+								text: row.text,
+								fill: row.fill,
+								fontSize: row.size,
+								fontWeight: row.weight,
+								fontFamily: "IBM Plex Sans, sans-serif",
+								verticalAlign: "top",
+								align: "left",
+							},
+						})),
+					};
+				},
 			},
 			...(showGap
 				? [
@@ -139,13 +159,14 @@
 							xAxisIndex: 1,
 							yAxisIndex: 1,
 							barMaxWidth: 18,
+							labelLayout: { hideOverlap: false },
 							data: gaps.map((gap, i) => ({
 								value: gap,
 								itemStyle: { color: gapOutside(gap, plan[i]) ? UNFAVORABLE : CONTEXT },
 								label: {
 									show: true,
 									position: gap < 0 ? "bottom" : "top",
-									distance: 2,
+									distance: 4,
 									formatter: () => money(gap, { signed: true }),
 									color: MUTED,
 									fontSize: 11,

@@ -2,8 +2,9 @@
 
 -- Planted JPY invoices stored at the wrong minor-unit scale.
 select
-    order_id,
-    variance_usd
-from {{ ref('rpt_bookings_to_billings') }}
-where order_id like '801STORY000050%'
-  and abs(variance_usd) > 1000
+    r.order_id,
+    r.variance_usd
+from {{ ref('rpt_bookings_to_billings') }} r
+inner join {{ ref('stg_salesforce__account') }} a on r.account_id = a.account_id
+where a.name like 'Yen Defect%'
+  and abs(r.variance_usd) > 1000

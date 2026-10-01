@@ -1,6 +1,7 @@
 threshold_key,threshold_value
 materiality_balance_pct,0.01
 materiality_flow_pct,0.05
+materiality_rate_pts,1
 tieout_tolerance_pct,0.01
 collections_over90_max_pct_of_ar,0.02
 dso_max_days,45

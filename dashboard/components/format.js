@@ -1,7 +1,8 @@
 const MINUS = "\u2212";
 
-/** policy_thresholds: balance metrics 1%, flow metrics 5%. */
+/** policy_thresholds: balance metrics 1%, flow metrics 5%, rates ±1 pt. */
 export const BAND = { balance: 0.01, flow: 0.05 };
+export const RATE_BAND_PTS = 1;
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -108,6 +109,33 @@ export function gapRatio(actual, plan) {
 	const p = num(plan);
 	if (a == null || p == null || p === 0) return null;
 	return (a - p) / Math.abs(p);
+}
+
+export function ratePoints(actual, plan) {
+	const a = num(actual);
+	const p = num(plan);
+	if (a == null || p == null) return null;
+	const delta = a - p;
+	return Math.abs(a) <= 2 && Math.abs(p) <= 2 ? delta * 100 : delta;
+}
+
+/** Inclusive points band from policy_thresholds.materiality_rate_pts. */
+export function verdictRate(actual, plan, higherIsBetter = true) {
+	const pts = ratePoints(actual, plan);
+	if (pts == null) return { state: "missing", color: "var(--color-ink)" };
+	if (Math.abs(pts) <= RATE_BAND_PTS + 1e-9) return { state: "inside", color: "var(--color-ink)" };
+	const good = higherIsBetter ? pts > 0 : pts < 0;
+	return {
+		state: good ? "favorable" : "unfavorable",
+		color: good ? "var(--color-favorable)" : "var(--color-unfavorable)",
+	};
+}
+
+export function sameYearLabel(label, period) {
+	const year = String(period ?? "").match(/\b(20\d{2})\b/);
+	const text = String(label ?? "");
+	if (!year || !text.includes(year[1])) return text;
+	return text.replace(year[1], "").replace(/\s+/g, " ").trim();
 }
 
 export function verdict(actual, plan, band = "balance", higherIsBetter = true) {

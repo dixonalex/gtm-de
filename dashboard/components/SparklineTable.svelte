@@ -71,12 +71,20 @@
 		font-weight: 500;
 		color: var(--color-ink-muted);
 		border-bottom: 1px solid var(--color-ink);
+		border-left: 0;
+		border-right: 0;
 		padding: 0 12px 8px 0;
 	}
 	td {
 		border-bottom: 1px solid var(--color-rule);
+		border-left: 0;
+		border-right: 0;
 		padding: 10px 12px 10px 0;
 		vertical-align: middle;
+	}
+	svg {
+		display: block;
+		overflow: hidden;
 	}
 	.name {
 		color: var(--color-ink);

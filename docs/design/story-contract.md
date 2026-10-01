@@ -74,6 +74,7 @@ Planted defect: 3 JPY invoices whose amounts arrive in the wrong minor-unit scal
 |---|---|
 | materiality_balance_pct | 1% (ARR and other balances) |
 | materiality_flow_pct | 5% (bookings, net new, other flows) |
+| materiality_rate_pts | 1 pt (NRR, GRR, attainment). Inclusive. |
 | tieout_tolerance_pct | 1% of billings |
 | collections_over90_max_pct_of_ar | 2% |
 | dso_max_days | 45 |

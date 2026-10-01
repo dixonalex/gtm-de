@@ -62,44 +62,54 @@ function niceTicks(min, max, step) {
 	return out;
 }
 
-/**
- * At most three labeled hairlines.
- * Default keeps ~15% padding and places ticks inside it.
- * `zero` pins the floor at 0. `cover` snaps both ends onto ticks so the
- * lowest gridline is at or below the data.
- */
-export function axisWindow(dataMin, dataMax, { zero = false, pad = 0.15, cover = false } = {}) {
-	const hi = Number(dataMax);
-	const lo = zero ? Math.min(0, Number(dataMin)) : Number(dataMin);
-	const span = Math.max(hi - lo, Math.abs(hi) * 0.02, 1);
-	const floor = zero ? 0 : lo - span * pad;
-	const cap = hi + span * pad;
-	let best = null;
+function finestTicks(min, max, limit) {
+	const span = Math.max(max - min, 1);
 	for (const step of niceSteps(span)) {
-		if (cover || zero) {
-			const min = zero ? 0 : Math.floor(lo / step) * step;
-			const max = Math.ceil((hi - step * 1e-8) / step) * step;
-			if (!(max > min)) continue;
-			const ticks = niceTicks(min, max, step);
-			if (ticks.length < 2 || ticks.length > 3) continue;
-			if (ticks[0] > lo + step * 1e-6 || ticks[ticks.length - 1] < hi - step * 1e-6) continue;
-			const score = (ticks.length === 3 ? 2 : 0) - (max - min) / span;
-			if (!best || score > best.score) best = { min, max, ticks, score };
-		} else {
-			const ticks = niceTicks(floor, cap, step).filter((tick) => tick > floor + step * 1e-6 && tick < cap - step * 1e-6);
-			if (ticks.length < 2 || ticks.length > 3) continue;
-			const score = (ticks.length === 3 ? 2 : 0) + (ticks[0] <= lo ? 1 : 0);
-			if (!best || score > best.score) best = { min: floor, max: cap, ticks, score };
+		const ticks = niceTicks(min, max, step).filter(
+			(tick) => tick > min + step * 1e-6 && tick < max - step * 1e-6,
+		);
+		if (ticks.length >= 2 && ticks.length <= limit) return ticks;
+	}
+	return [];
+}
+
+/**
+ * Labeled gridlines only: a baseline plus at most three hairlines.
+ * `zero` pins the baseline at 0 and keeps the finest round step that fits
+ * (an ARR book lands on $0 / $50M / $100M / $150M, not $200M).
+ * `floor` is the fraction of the plot where the lowest value sits, used by
+ * the truncated bridge so anchors have a body below the first hairline.
+ */
+export function axisWindow(dataMin, dataMax, { zero = false, floor = null } = {}) {
+	const hi = Number(dataMax);
+	const lo = Number(dataMin);
+	if (floor != null && !zero) {
+		const head = 0.1;
+		const span = Math.max(hi - lo, Math.abs(hi) * 0.02, 1);
+		const range = span / (1 - floor - head);
+		const min = lo - floor * range;
+		const max = min + range;
+		return { min, max, ticks: finestTicks(min, max, 4) };
+	}
+	const base = zero ? Math.min(0, lo) : lo;
+	const span = Math.max(hi - base, Math.abs(hi) * 0.02, 1);
+	for (const step of niceSteps(span)) {
+		const min = zero ? 0 : Math.floor((base + step * 1e-9) / step) * step;
+		let max = Math.ceil((hi - step * 1e-9) / step) * step;
+		if (!(max > min)) max = min + step;
+		const ticks = niceTicks(min, max, step);
+		if (
+			ticks.length >= 2 &&
+			ticks.length <= 4 &&
+			ticks[0] <= base + step * 1e-6 &&
+			ticks[ticks.length - 1] >= hi - step * 1e-6
+		) {
+			return { min: ticks[0] === 0 ? 0 : ticks[0], max: ticks[ticks.length - 1], ticks };
 		}
 	}
-	if (!best) {
-		const min = zero ? 0 : lo;
-		const max = hi + span * pad;
-		return { min, max, ticks: [min, (min + max) / 2, max] };
-	}
-	const min = best.min === 0 ? 0 : best.min;
-	const max = best.max === 0 ? 0 : best.max;
-	return { min, max, ticks: best.ticks };
+	const min = zero ? 0 : lo;
+	const max = hi;
+	return { min, max, ticks: [min, max] };
 }
 
 export function valueAxisTicks(window, formatter, { labels = true } = {}) {
