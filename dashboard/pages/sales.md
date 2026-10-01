@@ -71,7 +71,7 @@ order by amount_usd desc
 select * from gtm.connector_freshness order by connector_id
 ```
 
-<UrlSync keys="segment,team,rep" defaults="segment:All,team:All,rep:All" />
+<UrlSync keys="quarter,segment,team,rep" defaults="quarter:2026-Q3,segment:All,team:All,rep:All" primary="quarter" />
 
 <SalesView {kpi} {segments} {forecast} {months} {slips} {freshness}>
   <div slot="controls">

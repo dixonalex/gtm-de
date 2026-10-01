@@ -2,9 +2,12 @@
 	import { browser } from "$app/environment";
 	import { getInputContext } from "@evidence-dev/sdk/utils/svelte";
 	import { onMount } from "svelte";
+	import { get } from "svelte/store";
 
 	export let keys = "";
 	export let defaults = "";
+	/** Dropdown that stays the period control. It is never an active filter. */
+	export let primary = "";
 
 	const inputs = getInputContext();
 	const keyList = keys.split(",").map((key) => key.trim()).filter(Boolean);
@@ -34,10 +37,11 @@
 		});
 	}
 
-	// Set the URL value before Dropdown reads its initial selection.
-	const urlValues = {};
+	// Seed once, before Dropdown copies its initial selection. Evidence 40.1.8
+	// does not read URL params itself.
 	if (browser) {
 		const params = new URLSearchParams(window.location.search);
+		const urlValues = {};
 		for (const key of keyList) {
 			const value = params.get(key);
 			if (value) urlValues[key] = value;
@@ -54,16 +58,43 @@
 		return String(value);
 	}
 
+	function paint(current) {
+		const root = document.querySelector(".slice-controls");
+		if (!root) return;
+		const nodes = [...root.querySelectorAll(".inline-block")];
+		nodes.forEach((node, index) => {
+			const key = keyList[index];
+			if (!key) return;
+			const value = inputValue(current, key);
+			const fallback = defaultMap[key] || "All";
+			const isPrimary = key === primary;
+			const active = !isPrimary && Boolean(value) && value !== fallback;
+			node.classList.toggle("is-period", isPrimary);
+			node.classList.toggle("is-active", active);
+			let clear = node.querySelector(".slice-clear");
+			if (active && !clear) {
+				clear = document.createElement("button");
+				clear.type = "button";
+				clear.className = "slice-clear";
+				clear.setAttribute("aria-label", `Clear ${key}`);
+				clear.textContent = "×";
+				clear.addEventListener("click", (event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					apply({ [key]: fallback });
+				});
+				node.appendChild(clear);
+			} else if (!active && clear) {
+				clear.remove();
+			}
+		});
+	}
+
 	onMount(() => {
-		// The first resolved input query keeps the prerendered rows. Move each
-		// overridden input off the URL value and back so Evidence runs it in DuckDB.
-		const overrides = Object.fromEntries(
-			Object.entries(urlValues).filter(([key, value]) => value !== defaultMap[key]),
-		);
-		if (Object.keys(overrides).length) {
-			apply(Object.fromEntries(Object.keys(overrides).map((key) => [key, defaultMap[key]])));
-			setTimeout(() => apply(overrides), 50);
-		}
+		// Dropdowns are later siblings, so the first paint runs before they exist.
+		const refresh = () => paint(get(inputs));
+		const frame = requestAnimationFrame(refresh);
+		const timer = setTimeout(refresh, 0);
 		const unsubscribe = inputs.subscribe((current) => {
 			const params = new URLSearchParams(window.location.search);
 			let changed = false;
@@ -80,10 +111,16 @@
 					changed = true;
 				}
 			}
-			if (!changed) return;
-			const query = params.toString();
-			history.replaceState(null, "", query ? `${location.pathname}?${query}` : location.pathname);
+			if (changed) {
+				const query = params.toString();
+				history.replaceState(null, "", query ? `${location.pathname}?${query}` : location.pathname);
+			}
+			paint(current);
 		});
-		return unsubscribe;
+		return () => {
+			cancelAnimationFrame(frame);
+			clearTimeout(timer);
+			unsubscribe();
+		};
 	});
 </script>

@@ -6,7 +6,7 @@
 	import PageFooter from "./PageFooter.svelte";
 	import PageHeader from "./PageHeader.svelte";
 	import SlipTable from "./SlipTable.svelte";
-	import { asRows, monthLabel } from "./format.js";
+	import { asRows, monthLabel, onlyLabel } from "./format.js";
 
 	export let kpi = [];
 	export let segments = [];
@@ -24,7 +24,7 @@
 	$: row = asRows(kpi)[0] || {};
 	$: call = asRows(forecast);
 	$: last = call[call.length - 1] || {};
-	$: sliceText = [row.segment, row.team, row.rep].filter((value) => value && value !== "All").join(" · ");
+	$: sliceText = onlyLabel([row.segment, row.team, row.rep]);
 	$: sources = asRows(freshness)
 		.slice()
 		.sort((a, b) => (a.connector_id === "salesforce" ? -1 : 1))
@@ -34,15 +34,16 @@
 			sla: item.status === "PASS" ? "" : "24h",
 			late: item.status !== "PASS",
 		}));
-	$: bars = asRows(months).map((item) => ({
+	$: bars = asRows(months).map((item, index, list) => ({
 		label: monthLabel(item.month_end).replace(/ \d{4}$/, ""),
 		value: Number(item.bookings_usd),
 		plan: Number(item.bookings_plan_usd),
+		current: index === list.length - 1,
 	}));
 </script>
 
 <PageHeader eyebrow="SALES · WEEKLY" title="Pipeline and forecast" {sources} asOf={asRows(freshness)[0]?.as_of_date || ""} exportRows={[row]}>
-	<div slot="controls" class="gtm-controls">
+	<div slot="controls" class="slice-controls">
 		<slot name="controls" />
 	</div>
 </PageHeader>

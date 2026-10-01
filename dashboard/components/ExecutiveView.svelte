@@ -5,7 +5,7 @@
 	import PageFooter from "./PageFooter.svelte";
 	import PageHeader from "./PageHeader.svelte";
 	import SignedBridge from "./SignedBridge.svelte";
-	import { asRows, dayLabel, money, monthLabel, percent, verdict } from "./format.js";
+	import { asRows, dayLabel, money, monthLabel, onlyLabel, percent, verdict } from "./format.js";
 
 	export let kpi = [];
 	export let trend = [];
@@ -28,7 +28,7 @@
 	$: losses = moved.filter((item) => item.side === "loss");
 	$: eventRow = asRows(events).find((item) => item.applies_to === "arr");
 	$: lineEvent = eventRow ? { at: eventRow.event_date, label: `Jun · ${eventRow.label}` } : null;
-	$: sliceText = [row.segment, row.region].filter((value) => value && value !== "All").join(" · ");
+	$: sliceText = onlyLabel([row.segment, row.region]);
 	$: sources = asRows(freshness)
 		.slice()
 		.sort((a, b) => (a.connector_id === "salesforce" ? -1 : 1))
@@ -74,7 +74,7 @@
 	asOf={asRows(freshness)[0]?.as_of_date || ""}
 	exportRows={[row]}
 >
-	<div slot="controls" class="gtm-controls">
+	<div slot="controls" class="slice-controls">
 		<slot name="controls" />
 	</div>
 </PageHeader>

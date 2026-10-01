@@ -114,6 +114,22 @@ def main() -> None:
     check("NRR gap", abs((rates[0] - rates[1]) - -0.005) < 1e-9, f"{rates[0]:.4f} vs plan {rates[1]:.4f}")
     check("GRR gap", abs((rates[2] - rates[3]) - -0.01) < 1e-9, f"{rates[2]:.4f} vs plan {rates[3]:.4f}")
 
+    path = con.execute(
+        """
+        select month_end, nrr, grr
+        from marts.fct_nrr_grr
+        where month_end between date '2026-01-31' and date '2026-08-31'
+        order by month_end
+        """
+    ).fetchall()
+    check("NRR and GRR months", len(path) == 8, f"{len(path)} month-ends")
+    for prev, cur in zip(path, path[1:]):
+        nrr_pts = abs(cur[1] - prev[1]) * 100
+        grr_pts = abs(cur[2] - prev[2]) * 100
+        label = f"{prev[0]} → {cur[0]}"
+        check(f"NRR moves gradually {label}", nrr_pts <= 1.5, f"{nrr_pts:.2f} pt")
+        check(f"GRR moves gradually {label}", grr_pts <= 1.5, f"{grr_pts:.2f} pt")
+
     won = con.execute(
         """
         select sum(bookings_acv_usd) from marts.fct_bookings_monthly

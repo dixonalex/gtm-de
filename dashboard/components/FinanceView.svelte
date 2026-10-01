@@ -7,7 +7,7 @@
 	import SignedBridge from "./SignedBridge.svelte";
 	import SparklineTable from "./SparklineTable.svelte";
 	import StatusChip from "./StatusChip.svelte";
-	import { asRows, count, dayLabel, days, localMoney, money, monthLabel, percent } from "./format.js";
+	import { asRows, count, dayLabel, days, localMoney, money, monthLabel, onlyLabel, percent } from "./format.js";
 
 	export let kpi = [];
 	export let currencies = [];
@@ -31,7 +31,7 @@
 
 	$: row = asRows(kpi)[0] || {};
 	$: period = monthLabel(row.month_end);
-	$: sliceText = [row.currency, row.segment].filter((value) => value && value !== "All").join(" · ");
+	$: sliceText = onlyLabel([row.currency, row.segment]);
 	$: sources = asRows(freshness)
 		.slice()
 		.sort((a, b) => (a.connector_id === "salesforce" ? -1 : 1))
@@ -81,7 +81,7 @@
 	exportLabel="Export for close file"
 	exportRows={[row]}
 >
-	<div slot="controls" class="gtm-controls">
+	<div slot="controls" class="slice-controls">
 		<slot name="controls" />
 	</div>
 </PageHeader>

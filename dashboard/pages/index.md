@@ -63,7 +63,7 @@ select * from gtm.connector_freshness order by connector_id
 select * from gtm.chart_events
 ```
 
-<UrlSync keys="period,segment,region" defaults="period:2026-08-31,segment:All,region:All" />
+<UrlSync keys="period,segment,region" defaults="period:2026-08-31,segment:All,region:All" primary="period" />
 
 <ExecutiveView {kpi} {trend} {notes} {movers} {freshness} {events}>
   <div slot="controls">

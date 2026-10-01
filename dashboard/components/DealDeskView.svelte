@@ -4,7 +4,7 @@
 	import PageFooter from "./PageFooter.svelte";
 	import PageHeader from "./PageHeader.svelte";
 	import Worklist from "./Worklist.svelte";
-	import { asRows, count, money } from "./format.js";
+	import { asRows, count, money, onlyLabel } from "./format.js";
 
 	export let kpi = [];
 	export let openRows = [];
@@ -41,7 +41,7 @@
 	}
 
 	$: row = asRows(kpi)[0] || {};
-	$: sliceText = [row.owner_name, row.exception_type].filter((value) => value && value !== "All").join(" · ");
+	$: sliceText = onlyLabel([row.owner_name, LABELS[row.exception_type] || row.exception_type]);
 	$: sources = asRows(freshness)
 		.slice()
 		.sort((a, b) => (a.connector_id === "salesforce" ? -1 : 1))
@@ -55,7 +55,7 @@
 </script>
 
 <PageHeader eyebrow="DEAL DESK · DAILY" title="Quote-to-cash exceptions" {sources} asOf={asRows(freshness)[0]?.as_of_date || ""} exportRows={asRows(openRows)}>
-	<div slot="controls" class="gtm-controls">
+	<div slot="controls" class="slice-controls">
 		<slot name="controls" />
 	</div>
 </PageHeader>

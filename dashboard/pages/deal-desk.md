@@ -45,7 +45,7 @@ order by amount_usd desc
 select * from gtm.connector_freshness order by connector_id
 ```
 
-<UrlSync keys="owner,type,queue" defaults="owner:All,type:All,queue:All" />
+<UrlSync keys="day,owner,type,queue" defaults="day:today,owner:All,type:All,queue:All" primary="day" />
 
 <DealDeskView {kpi} openRows={open_rows} resolvedRows={resolved_rows} {freshness}>
   <div slot="controls">

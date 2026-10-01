@@ -11,7 +11,18 @@
 		animation: false,
 		textStyle: text,
 		legend: { show: false },
-		grid: panels.map((_, index) => ({ left: 108, right: 36, top: 8 + index * 78, height: 52 })),
+		title: panels.map((panel, index) => ({
+			text: panel.title,
+			left: 0,
+			top: index * 92,
+			textStyle: {
+				color: MUTED,
+				fontSize: 12,
+				fontWeight: 500,
+				fontFamily: "IBM Plex Sans Condensed, sans-serif",
+			},
+		})),
+		grid: panels.map((_, index) => ({ left: 4, right: 36, top: 18 + index * 92, height: 52 })),
 		xAxis: panels.map((_, index) => ({
 			type: "category",
 			gridIndex: index,
@@ -27,15 +38,11 @@
 			},
 			splitLine: { show: false },
 		})),
-		yAxis: panels.map((panel, index) => ({
+		yAxis: panels.map((_, index) => ({
 			type: "value",
 			gridIndex: index,
 			min: 0,
 			max,
-			name: panel.title,
-			nameLocation: "middle",
-			nameGap: 8,
-			nameTextStyle: { color: MUTED, fontSize: 12, align: "right" },
 			axisLabel: { show: false },
 			axisLine: { show: false },
 			axisTick: { show: false },
@@ -57,7 +64,7 @@
 			},
 		})),
 	};
-	$: height = Math.max(120, panels.length * 78 + 16);
+	$: height = Math.max(120, panels.length * 92 + 8);
 </script>
 
 <ChartCanvas {option} {height} />

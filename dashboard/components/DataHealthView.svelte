@@ -5,7 +5,7 @@
 	import ReviewQueue from "./ReviewQueue.svelte";
 	import StatusChip from "./StatusChip.svelte";
 	import TestBars from "./TestBars.svelte";
-	import { asRows, count, percent } from "./format.js";
+	import { asRows, count, dayLabel, percent } from "./format.js";
 
 	export let objects = [];
 	export let tally = [];
@@ -20,7 +20,13 @@
 	$: totals = asRows(tally)[0] || {};
 	$: asideLines = [
 		"Last dbt build 16:52 UTC",
-		`${count(totals.tests)} tests · ${count(totals.pass_n)} pass · ${count(totals.warn_n)} warn · ${count(totals.error_n)} error`,
+		[
+			`${count(totals.tests)} tests`,
+			`${count(totals.pass_n)} pass`,
+			`${count(totals.warn_n)} warn`,
+			`${count(totals.error_n)} error`,
+			Number(totals.skipped_n) ? `${count(totals.skipped_n)} skipped` : "",
+		].filter(Boolean).join(" · "),
 		"Next build 17:52 UTC · hourly",
 	];
 	$: families = FAMILIES.map((title) => {
@@ -28,7 +34,7 @@
 		const points = asRows(tests).filter((item) => item.family === key);
 		return {
 			title,
-			labels: points.map((item) => String(new Date(`${item.failed_on}T00:00:00Z`).getUTCDate())),
+			labels: points.map((item) => dayLabel(item.failed_on)),
 			values: points.map((item) => Number(item.failure_count)),
 		};
 	});
@@ -43,6 +49,15 @@
 		href: "#review",
 	}));
 
+	function slaTone(item) {
+		const age = Number(item.age_hours);
+		const sla = Number(item.sla_hours);
+		if (!(sla > 0)) return "";
+		if (age > sla) return "late";
+		if (age >= sla * 0.5) return "watch";
+		return "";
+	}
+
 	function size(issue) {
 		if (issue.size_unit === "count") return `${count(issue.size_value)} pairs`;
 		return `${percent(issue.size_value)} of ${issue.issue_key === "won_without_order" ? "wins in 90 days" : issue.issue_key === "late_salesforce" ? "Salesforce rows" : "invoices"}`;
@@ -50,7 +65,7 @@
 </script>
 
 <PageHeader eyebrow="DATA HEALTH · UPDATED HOURLY" title="Pipeline and tests" sources={[]} {asideLines} exportRows={rows}>
-	<div slot="controls" class="gtm-controls">
+	<div slot="controls" class="slice-controls">
 		<slot name="controls" />
 	</div>
 </PageHeader>
@@ -102,9 +117,9 @@
 					<tr>
 						<td>{item.title}</td>
 						<td>{item.impact}</td>
-						<td class:late={Number(item.age_hours) > Number(item.sla_hours)}>{count(item.age_hours)}h / {count(item.sla_hours)}h</td>
+						<td class={slaTone(item)}>{count(item.age_hours)}h / {count(item.sla_hours)}h</td>
 						<td>{item.owner}</td>
-						<td class="right">{item.action}</td>
+						<td class="right"><a class="action" href="#incidents">{item.action} →</a></td>
 					</tr>
 				{/each}
 			</tbody>
@@ -164,6 +179,8 @@
 	.num, .right { text-align: right; }
 	th.num, th.right { text-align: right; }
 	.late { color: var(--color-unfavorable); }
+	.watch { color: var(--color-warning); }
+	.action { color: var(--color-focus); text-decoration: none; }
 	.sr {
 		position: absolute;
 		width: 1px;

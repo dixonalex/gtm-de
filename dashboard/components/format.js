@@ -73,7 +73,8 @@ export function percent(value, digits = 0) {
 		const hidesZero = Math.abs(pct) > 1e-9 && rounded === 0;
 		const hidesHundred = Math.abs(pct - 100) > 1e-6 && rounded === 100;
 		const hidesSign = pct < 0 && rounded === 0;
-		if (hidesZero || hidesHundred || hidesSign) use = 1;
+		const nearThreshold = Math.abs(pct) < 10 && Math.abs(pct - rounded) >= 0.25;
+		if (hidesZero || hidesHundred || hidesSign || nearThreshold) use = 1;
 	}
 	const text = Math.abs(pct).toFixed(use);
 	if (Number(text) === 0) return "0%";
@@ -156,11 +157,14 @@ export function verdictRate(actual, plan, higherIsBetter = true) {
 	};
 }
 
-export function sameYearLabel(label, period) {
-	const year = String(period ?? "").match(/\b(20\d{2})\b/);
-	const text = String(label ?? "");
-	if (!year || !text.includes(year[1])) return text;
-	return text.replace(year[1], "").replace(/\s+/g, " ").trim();
+export function sameYearLabel(label) {
+	return String(label ?? "").replace(/\s+20\d{2}\b/g, "").replace(/\s+/g, " ").trim();
+}
+
+export function onlyLabel(parts) {
+	const names = parts.filter((value) => value && value !== "All");
+	if (!names.length) return "";
+	return `${names.join(" · ")} only`;
 }
 
 export function verdict(actual, plan, band = "balance", higherIsBetter = true) {

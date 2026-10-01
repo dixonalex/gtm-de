@@ -67,7 +67,7 @@ order by amount_usd desc
 select * from gtm.connector_freshness order by connector_id
 ```
 
-<UrlSync keys="period,currency,segment" defaults="period:2026-08-31,currency:All,segment:All" />
+<UrlSync keys="period,currency,segment" defaults="period:2026-08-31,currency:All,segment:All" primary="period" />
 
 <FinanceView kpi={kpi} currencies={currency_rows} {aging} {burn} {orders} {freshness}>
   <div slot="controls">

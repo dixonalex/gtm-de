@@ -212,8 +212,17 @@ def _active_span(start, end=dt.date(2027, 7, 31)):
     return start, end
 
 
+# Feb 2025 through Jul 2026. Early months are small because the cohort is
+# small; later months grow with it so trailing-12-month GRR stays near 91%.
+_LOSS_TARGETS = [
+    43_000, 53_000, 64_000, 79_000, 96_000, 117_000, 143_000, 174_000,
+    212_000, 258_000, 316_000, 385_000, 470_000, 573_000, 699_000, 854_000,
+    1_042_000, 1_271_000,
+]
+
+
 def _loss_schedule():
-    """Sep 2025–Jul 2026 cohort losses.
+    """Feb 2025–Jul 2026 cohort losses.
 
     Each month: a few full churns, several contractions at about 30% of that
     account's ARR, and expansions on other accounts that sum to the same
@@ -221,57 +230,71 @@ def _loss_schedule():
     a gain amount, and each account is its own hierarchy.
     """
     slots = []
-    for i in range(11):
-        churns = [
-            64_000 + 4_000 * ((i + 1) % 5),
-            88_000 + 3_000 * (i % 4),
-            118_000 - 2_000 * (i % 6),
-        ]
-        cuts = [34_000, 41_000, 27_000, 46_000, 32_000]
-        cuts = [c + 500 * ((i + k) % 5 - 2) for k, c in enumerate(cuts)]
-        target = 450_000
-        cuts[-1] += target - (sum(churns) + sum(cuts))
+    for i, target in enumerate(_LOSS_TARGETS):
+        # Two churns carry about 60% of the month. Two contractions and two
+        # expansions make up the rest, in distinct dollars, so a loss never
+        # matches a gain.
+        churn_pool = int(round(target * 0.6 / 1000) * 1000)
+        churns = [int(round(churn_pool * 0.42 / 1000) * 1000)]
+        churns.append(churn_pool - churns[0])
+        cut_pool = target - sum(churns)
+        cuts = [int(round(cut_pool * 0.45 / 1000) * 1000)]
+        cuts.append(cut_pool - cuts[0])
+        expansions = [int(round(target * 0.46 / 1000) * 1000)]
+        expansions.append(target - expansions[0])
+        # Nudge until every movement dollar is unique and positive.
+        steps = 0
+        while True:
+            parts = churns + cuts + expansions
+            if all(x > 0 for x in parts) and len(set(parts)) == len(parts) and sum(churns) + sum(cuts) == target and sum(expansions) == target:
+                break
+            churns[0] += 1_000
+            churns[1] -= 1_000
+            if churns[1] <= 0:
+                cuts[0] += 1_000
+                cuts[1] -= 1_000
+                expansions[0] += 1_000
+                expansions[1] -= 1_000
+            steps += 1
+            if steps > 80:
+                raise AssertionError((i, target, churns, cuts, expansions))
         contractions = []
         for cut in cuts:
             before = int(round(cut / 0.32 / 1000.0) * 1000)
             if before - cut < 8_000:
                 before = cut + 8_000
             contractions.append((before, before - cut))
-        losses = list(churns) + [before - after for before, after in contractions]
-        # Gains sit off the loss set. The last one absorbs the remainder so the
-        # month still nets to zero, then steps by $1k until it is unique.
-        expansions = [102_000 + 3_000 * (i % 4), 86_000, 129_000, 78_000]
-        last = target - sum(expansions)
-        steps = 0
-        while True:
-            banned = set(losses) | set(expansions)
-            if last > 0 and last not in banned and expansions[0] > 0 and expansions[0] not in (set(losses) | set(expansions[1:])):
-                break
-            last += 1_000
-            expansions[0] -= 1_000
-            steps += 1
-            if steps > 40:
-                raise AssertionError((i, losses, expansions, last))
-        expansions.append(last)
-        gains = list(expansions)
-        overlap = set(losses) & set(gains)
-        if (
-            overlap
-            or any(x <= 0 for x in losses + gains)
-            or any(a <= 0 for _, a in contractions)
-            or len(set(losses)) != len(losses)
-            or len(set(gains)) != len(gains)
-            or sum(gains) != target
-            or sum(losses) != target
-        ):
-            raise AssertionError((i, overlap, churns, contractions, expansions, sum(losses), sum(gains)))
         slots.append((churns, contractions, expansions))
     return slots
+
+
+def _cover_early_usd(g) -> None:
+    """USD rates for Feb–Jul 2024.
+
+    The simulated calendar starts in Aug 2024. Cohort accounts that close
+    earlier would otherwise drop out of ARR and fail bookings coverage.
+    These rows use a fixed id and a rate of 1, so they do not move the
+    generator's id sequence or any later FX draw.
+    """
+    month = dt.date(2024, 2, 1)
+    stop = dt.date(2024, 8, 1)
+    i = 0
+    while month < stop:
+        nxt = add_months(month, 1)
+        if ("USD", month) not in g.fx_table:
+            g.fx_table[("USD", month)] = 1.0
+            stamped = _ts(month, 8)
+            g.rows("dated_conversion_rate").append(dict(
+                Id=story_sfid("04w", 9000 + i), IsoCode="USD", ConversionRate=1.0,
+                StartDate=month, NextStartDate=nxt, CreatedDate=stamped, SystemModstamp=stamped))
+        month = nxt
+        i += 1
 
 
 def plant_story(g) -> None:
     if g.as_of != AS_OF:
         return
+    _cover_early_usd(g)
     _add_users(g)
     events = []
     g._story_events = events
@@ -293,6 +316,8 @@ def plant_story(g) -> None:
     term_end = dt.date(2027, 7, 31)
     prior_end = dt.date(2026, 7, 31)
     prior_start = dt.date(2025, 8, 1)
+    # In the July 2026 trailing-12 cohort (as of 31 Jul 2025) as well as August's.
+    seen_from = dt.date(2025, 7, 1)
     aug = dt.date(2026, 8, 1)
 
     # Churn: active through July, gone in August.
@@ -304,7 +329,7 @@ def plant_story(g) -> None:
         (105, "Holloway & Co.", "Enterprise", 40_000),
     ]:
         a = acct(n, name, segment)
-        recurring(a, n, amount, prior_start, prior_end)
+        recurring(a, n, amount, seen_from, prior_end)
 
     # Contraction: July stock drops by the stated amount and stays above zero.
     for n, name, segment, before, after in [
@@ -312,38 +337,40 @@ def plant_story(g) -> None:
         (112, "Alder & Finch", "Mid-market", 180_000, 90_000),
     ]:
         a = acct(n, name, segment)
-        recurring(a, n, before, prior_start, prior_end, order_type="New")
+        recurring(a, n, before, seen_from, prior_end, order_type="New")
         recurring(a, n + 50, after, aug, term_end, order_type="Renewal")
 
     # Smaller unnamed movements keep the August bridge in band without entering the top-mover list.
     for i in range(8):
         a = acct(180 + i, f"Lowell Contract {i + 1}", "Mid-market")
-        recurring(a, 180 + i, 80_000, prior_start, prior_end)
+        recurring(a, 180 + i, 80_000, seen_from, prior_end)
         recurring(a, 280 + i, 40_000, aug, term_end, order_type="Renewal")
     for i in range(3):
         a = acct(190 + i, f"Pemba Add-on {i + 1}", "Enterprise")
         recurring(a, 190 + i, 100_000, prior_start, term_end)
         recurring(a, 290 + i, 160_000, aug, term_end, order_type="Add-On")
 
-    # Cohort loss from Sep 2025 through Jul 2026, spread across many accounts.
-    # August is left to the planted bridge. Offsetting expansions sit on
-    # unrelated accounts (their own parent) and never match a loss dollar-for-dollar.
+    # One loss month in every trailing-12 window from Jan through Aug 2026.
+    # Each account starts a year before it ends, so it is in that window's
+    # cohort. August's bridge stays on the planted accounts above.
     owners = list(OWNERS)
     loss_months = []
-    yy, mm = 2025, 9
+    yy, mm = 2025, 2
     while (yy, mm) <= (2026, 7):
         loss_months.append(dt.date(yy, mm, 1))
         mm += 1
         if mm == 13:
             yy, mm = yy + 1, 1
+    schedule = _loss_schedule()
     for i, loss_start in enumerate(loss_months):
         ended = loss_start - DAY
-        churns, contractions, expansions = _loss_schedule()[i]
+        opened = add_months(loss_start, -12)
+        churns, contractions, expansions = schedule[i]
         for k, amount in enumerate(churns):
             n = 700 if i == 0 and k == 0 else 1000 + i * 3 + k
             name = "Sable Cohort 1" if n == 700 else f"Hale Cohort {i + 1}.{k + 1}"
             gone = acct(n, name, "Mid-market", owner=owners[(i + k) % len(owners)])
-            recurring(gone, n, amount, prior_start, ended)
+            recurring(gone, n, amount, opened, ended)
         for k, (before, after) in enumerate(contractions):
             n = 1100 + i * 5 + k
             held = acct(
@@ -351,7 +378,7 @@ def plant_story(g) -> None:
                 "Enterprise" if k % 2 == 0 else "Mid-market",
                 owner=owners[(i + k + 3) % len(owners)],
             )
-            recurring(held, n, before, prior_start, ended)
+            recurring(held, n, before, opened, ended)
             recurring(held, 1200 + i * 5 + k, after, loss_start, term_end, order_type="Renewal")
         for k, amount in enumerate(expansions):
             n = 1300 + i * 5 + k
@@ -360,7 +387,7 @@ def plant_story(g) -> None:
                 "Enterprise" if k % 2 == 0 else "Mid-market",
                 owner=owners[(i + k + 1) % len(owners)],
             )
-            recurring(kept, n, 1_000, prior_start, term_end)
+            recurring(kept, n, 1_000, opened, term_end)
             recurring(kept, 1400 + i * 5 + k, amount, loss_start, term_end, order_type="Add-On")
 
     # Expansion on top of a base that stays in force.

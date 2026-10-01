@@ -23,7 +23,16 @@ from gtm.health_object
 where ('${inputs.source.value}' = 'All' or upstream = '${inputs.source.value}')
   and ('${inputs.model.value}' = 'All' or object_name = '${inputs.model.value}')
   and ('${inputs.severity.value}' = 'All' or status = '${inputs.severity.value}')
-order by object_kind, object_name
+order by case object_name
+    when 'salesforce' then 1
+    when 'stripe' then 2
+    when 'fct_bookings' then 3
+    when 'fct_pipeline_snapshot' then 4
+    when 'fct_arr_monthly' then 5
+    when 'fct_billings' then 6
+    when 'rpt_bookings_to_billings' then 7
+    else 8
+  end
 ```
 
 ```sql tally
