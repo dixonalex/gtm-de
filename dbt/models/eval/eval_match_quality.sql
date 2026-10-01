@@ -3,14 +3,14 @@ with truth_accounts as (
         account_id,
         true_master_account_id,
         case_type
-    from read_csv('../data/truth/account_duplicates.csv', header = true, nullstr = '')
+    from read_csv('{{ data_dir() }}/truth/account_duplicates.csv', header = true, nullstr = '')
 ),
 
 truth_invoices as (
     select
         invoice_id,
         nullif(true_order_id, '') as true_order_id
-    from read_csv('../data/truth/invoice_order.csv', header = true, nullstr = '')
+    from read_csv('{{ data_dir() }}/truth/invoice_order.csv', header = true, nullstr = '')
 ),
 
 predicted_accounts as (

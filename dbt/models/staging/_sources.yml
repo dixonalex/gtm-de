@@ -4,7 +4,7 @@ sources:
   - name: salesforce
     description: Salesforce objects landed as CSV by the synthetic connector. API field names are verbatim.
     meta:
-      external_location: "../data/raw/salesforce/{name}.csv"
+      external_location: "{{ var('data_dir', env_var('GTM_DATA_DIR', flags.LOG_PATH.rsplit('/logs', 1)[0] ~ '/../data')) }}/raw/salesforce/{name}.csv"
     tables:
       - name: user
         config:
@@ -55,7 +55,7 @@ sources:
   - name: billing
     description: Stripe-shaped billing objects. Amounts are minor units and currency codes are lowercase.
     meta:
-      external_location: "../data/raw/billing/{name}.csv"
+      external_location: "{{ var('data_dir', env_var('GTM_DATA_DIR', flags.LOG_PATH.rsplit('/logs', 1)[0] ~ '/../data')) }}/raw/billing/{name}.csv"
     tables:
       - name: customer
         config:
@@ -84,7 +84,7 @@ sources:
     tables:
       - name: salesforce_sync
         meta:
-          external_location: "../data/raw/fivetran_log/connector_sync.csv"
+          external_location: "{{ var('data_dir', env_var('GTM_DATA_DIR', flags.LOG_PATH.rsplit('/logs', 1)[0] ~ '/../data')) }}/raw/fivetran_log/connector_sync.csv"
         config:
           freshness:
             warn_after: {count: 2, period: hour}
@@ -93,7 +93,7 @@ sources:
           loaded_at_field: sync_end
       - name: stripe_sync
         meta:
-          external_location: "../data/raw/fivetran_log/connector_sync.csv"
+          external_location: "{{ var('data_dir', env_var('GTM_DATA_DIR', flags.LOG_PATH.rsplit('/logs', 1)[0] ~ '/../data')) }}/raw/fivetran_log/connector_sync.csv"
         config:
           freshness:
             warn_after: {count: 24, period: hour}
