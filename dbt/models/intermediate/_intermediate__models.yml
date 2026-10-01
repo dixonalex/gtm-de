@@ -1,8 +1,19 @@
 version: 2
 
 models:
+  - name: int_accounts__deduped_v1
+    description: Frozen dedup-rule-v1. Same domain always merges. Used only to keep v1 eval numbers beside v2.
+    columns:
+      - name: account_id
+        data_tests: [unique, not_null]
+      - name: master_account_id
+        data_tests: [not_null]
+
   - name: int_accounts__deduped
-    description: Account to surviving master. Website domain wins; otherwise normalized name. Survivor is the earliest CreatedDate.
+    description: >
+      Account to surviving billing entity. A shared website domain merges only when countries
+      are compatible (null matches anything) and neither ParentId points at the other.
+      Otherwise normalized name, unchanged from v1. Survivor is the earliest CreatedDate.
     columns:
       - name: account_id
         data_tests: [unique, not_null]
@@ -19,6 +30,25 @@ models:
           - accepted_values:
               arguments:
                 values: ['website', 'name']
+
+  - name: int_accounts__hierarchy
+    description: Ultimate corporate parent via ParentId. Distinct from the billing-entity master.
+    columns:
+      - name: account_id
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__account')
+                field: account_id
+      - name: ultimate_parent_account_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__account')
+                field: account_id
 
   - name: int_fx__daily_rates
     description: >

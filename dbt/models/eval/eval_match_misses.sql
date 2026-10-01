@@ -14,7 +14,10 @@ truth_invoices as (
 ),
 
 predicted_accounts as (
-    select account_id, master_account_id
+    select 'v1' as rule_version, account_id, master_account_id
+    from {{ ref('int_accounts__deduped_v1') }}
+    union all
+    select 'v2' as rule_version, account_id, master_account_id
     from {{ ref('int_accounts__deduped') }}
 ),
 
@@ -35,6 +38,7 @@ customers as (
 
 dedup_joined as (
     select
+        p.rule_version,
         p.account_id,
         p.master_account_id as predicted_id,
         t.true_master_account_id as truth_id,
@@ -60,6 +64,7 @@ invoice_joined as (
 
 select
     'dedup' as task,
+    rule_version,
     'false_positive' as error_type,
     account_id as entity_id,
     predicted_id,
@@ -75,6 +80,7 @@ union all
 
 select
     'dedup',
+    rule_version,
     'false_negative',
     account_id,
     predicted_id,
@@ -90,6 +96,7 @@ union all
 
 select
     'invoice_order',
+    'v2',
     'false_positive',
     invoice_id,
     predicted_id,
@@ -105,6 +112,7 @@ union all
 
 select
     'invoice_order',
+    'v2',
     'false_negative',
     invoice_id,
     predicted_id,

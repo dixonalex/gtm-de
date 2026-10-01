@@ -1,0 +1,16 @@
+version: 2
+
+models:
+  - name: dq_account_merge_candidates
+    description: >
+      Pairs the auto-merge rule did not collapse, with similar normalized names and the same
+      currency, and no ParentId link. Stewardship queue only. It does not set master_account_id.
+    columns:
+      - name: account_id_a
+        data_tests: [not_null]
+      - name: account_id_b
+        data_tests: [not_null]
+      - name: similarity
+        data_tests: [not_null]
+      - name: reason
+        data_tests: [not_null]

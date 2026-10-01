@@ -14,7 +14,18 @@ truth_invoices as (
 ),
 
 predicted_accounts as (
-    select account_id, master_account_id
+    select
+        'v1' as rule_version,
+        account_id,
+        master_account_id
+    from {{ ref('int_accounts__deduped_v1') }}
+
+    union all
+
+    select
+        'v2' as rule_version,
+        account_id,
+        master_account_id
     from {{ ref('int_accounts__deduped') }}
 ),
 
@@ -46,6 +57,7 @@ truth_pairs as (
 
 predicted_pairs as (
     select
+        p.rule_version,
         p.account_id,
         p.master_account_id,
         t.case_type
@@ -56,15 +68,15 @@ predicted_pairs as (
 
 dedup_counts as (
     select
-        (select count(*) from predicted_pairs) as pairs_found,
-        (
-            select count(*)
-            from predicted_pairs p
-            inner join truth_pairs t
-                on p.account_id = t.account_id
-               and p.master_account_id = t.master_account_id
-        ) as true_positives,
+        p.rule_version,
+        count(*) as pairs_found,
+        count(t.account_id) as true_positives,
         (select count(*) from truth_pairs) as truth_pairs
+    from predicted_pairs p
+    left join truth_pairs t
+        on p.account_id = t.account_id
+       and p.master_account_id = t.master_account_id
+    group by p.rule_version
 ),
 
 case_types as (
@@ -86,6 +98,7 @@ dedup_case_truth as (
 
 dedup_case_predicted as (
     select
+        p.rule_version,
         p.case_type,
         count(*) as predicted_pairs,
         count(t.account_id) as true_positives
@@ -93,7 +106,30 @@ dedup_case_predicted as (
     left join truth_pairs t
         on p.account_id = t.account_id
        and p.master_account_id = t.master_account_id
-    group by p.case_type
+    group by p.rule_version, p.case_type
+),
+
+queue_pairs as (
+    select account_id_a, account_id_b
+    from {{ ref('dq_account_merge_candidates') }}
+),
+
+typo_in_queue as (
+    select
+        count(*) as typo_pairs,
+        count(*) filter (
+            where exists (
+                select 1
+                from queue_pairs q
+                where (
+                    q.account_id_a = t.account_id and q.account_id_b = t.master_account_id
+                ) or (
+                    q.account_id_b = t.account_id and q.account_id_a = t.master_account_id
+                )
+            )
+        ) as typo_pairs_queued
+    from truth_pairs t
+    where t.case_type = 'typo'
 ),
 
 invoice_scored as (
@@ -114,9 +150,14 @@ invoice_scored as (
        and fx.rate_date = i.created_date
 ),
 
+rule_versions as (
+    select distinct rule_version from predicted_accounts
+),
+
 metrics as (
     select
         'dedup' as task,
+        rule_version,
         'pairs_found' as metric,
         cast(null as varchar) as match_method,
         cast(null as varchar) as case_type,
@@ -126,43 +167,90 @@ metrics as (
 
     union all
 
-    select 'dedup', 'precision', null, null, null, true_positives * 1.0 / nullif(pairs_found, 0)
-    from dedup_counts
-
-    union all
-
-    select 'dedup', 'recall', null, null, null, true_positives * 1.0 / nullif(truth_pairs, 0)
+    select
+        'dedup',
+        rule_version,
+        'precision',
+        null,
+        null,
+        null,
+        true_positives * 1.0 / nullif(pairs_found, 0)
     from dedup_counts
 
     union all
 
     select
         'dedup',
+        rule_version,
+        'recall',
+        null,
+        null,
+        null,
+        true_positives * 1.0 / nullif(truth_pairs, 0)
+    from dedup_counts
+
+    union all
+
+    select
+        'dedup',
+        v.rule_version,
         'precision',
         null,
         c.case_type,
         null,
         p.true_positives * 1.0 / nullif(p.predicted_pairs, 0)
     from case_types c
-    left join dedup_case_predicted p on c.case_type = p.case_type
+    cross join rule_versions v
+    left join dedup_case_predicted p
+        on c.case_type = p.case_type
+       and v.rule_version = p.rule_version
 
     union all
 
     select
         'dedup',
+        v.rule_version,
         'recall',
         null,
         c.case_type,
         null,
         coalesce(p.true_positives, 0) * 1.0 / nullif(t.truth_pairs, 0)
     from case_types c
-    left join dedup_case_predicted p on c.case_type = p.case_type
+    cross join rule_versions v
+    left join dedup_case_predicted p
+        on c.case_type = p.case_type
+       and v.rule_version = p.rule_version
     left join dedup_case_truth t on c.case_type = t.case_type
 
     union all
 
     select
+        'dedup_queue',
+        'v2',
+        'queue_size',
+        null,
+        null,
+        null,
+        (select count(*) from queue_pairs)
+    from typo_in_queue
+
+    union all
+
+    select
+        'dedup_queue',
+        'v2',
+        'typo_recall',
+        null,
+        'typo',
+        null,
+        typo_pairs_queued * 1.0 / nullif(typo_pairs, 0)
+    from typo_in_queue
+
+    union all
+
+    select
         'invoice_order',
+        'v2',
         'accuracy',
         match_method,
         null,
@@ -176,6 +264,7 @@ metrics as (
 
     select
         'invoice_order',
+        'v2',
         'recall',
         s.match_method,
         null,
@@ -193,6 +282,7 @@ metrics as (
 
     select
         'invoice_order',
+        'v2',
         'recall',
         null,
         null,
@@ -206,6 +296,7 @@ metrics as (
 
     select
         'invoice_order',
+        'v2',
         'recall',
         match_method,
         null,
@@ -219,6 +310,7 @@ metrics as (
 
     select
         'invoice_order',
+        'v2',
         'value_recall',
         null,
         null,
@@ -230,6 +322,7 @@ metrics as (
 
     select
         'invoice_order',
+        'v2',
         'value_recall',
         null,
         null,
@@ -240,7 +333,7 @@ metrics as (
 
     union all
 
-    select 'invoice_order', 'unmatched', null, null, null, count(*)
+    select 'invoice_order', 'v2', 'unmatched', null, null, null, count(*)
     from invoice_scored
     where match_method = 'unmatched'
 
@@ -248,6 +341,7 @@ metrics as (
 
     select
         'invoice_order',
+        'v2',
         'precision',
         null,
         null,
@@ -259,6 +353,7 @@ metrics as (
 
     select
         'invoice_order',
+        'v2',
         'recall',
         null,
         null,

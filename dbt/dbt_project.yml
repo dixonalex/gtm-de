@@ -22,3 +22,6 @@ models:
     eval:
       +materialized: table
       +schema: eval
+    dq:
+      +materialized: view
+      +schema: dq
