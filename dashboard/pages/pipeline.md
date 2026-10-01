@@ -76,7 +76,14 @@ select
 from gtm.pipeline
 where month_end = (select max(month_end) from gtm.pipeline)
 group by stage_name
-order by pipeline_usd desc
+order by case stage_name
+    when 'Prospecting' then 1
+    when 'Qualification' then 2
+    when 'Needs Analysis' then 3
+    when 'Proposal/Price Quote' then 4
+    when 'Negotiation/Review' then 5
+    else 6
+end
 ```
 
 ```sql stage_leader
