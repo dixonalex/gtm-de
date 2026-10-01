@@ -8,14 +8,14 @@ notes as (
     select
         metric,
         coalesce(nullif(segment, ''), 'All') as segment,
+        coalesce(nullif(region, ''), 'All') as region,
         author,
         role,
         updated_on,
         requested_on,
         due_on,
         requested_from,
-        commentary,
-        'All' as region
+        commentary
     from {{ ref('variance_commentary') }}
 ),
 

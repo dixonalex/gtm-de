@@ -1,6 +1,19 @@
-metric,segment,author,role,updated_on,requested_on,due_on,requested_from,commentary
-committed_arr,,M. Alvarez,FP&A,2026-09-04,,,,Contraction and churn ran above plan from February to June while bookings beat it. August’s miss is explained by the segment notes below; a retention program covers the Mid-market accounts that renew in Q4.
-net_new,Enterprise,A. Chen,RevOps,2026-09-29,,,,Oakridge Analytics and Fennel Systems were won late August and ordered on 29 September so their ARR lands in September.
-net_new,Public sector,J. Okoro,Sales,2026-09-05,,,,Two state-agency deals moved to the Q4 procurement window.
-net_new,Mid-market,R. Patel,Sales,2026-09-05,,,,Two renewals signed early with seat upsell.
-bookings,,,,,2026-09-30,2026-10-02,Sales leadership,
+metric,segment,region,author,role,updated_on,requested_on,due_on,requested_from,commentary
+committed_arr,,,M. Alvarez,FP&A,2026-09-04,,,,"Contraction and churn ran above plan from February to June while bookings beat it. August’s miss is explained by the segment notes below; a retention program covers the Mid-market accounts that renew in Q4."
+committed_arr,Enterprise,,,,,2026-09-30,2026-10-02,Sales leadership,
+committed_arr,Mid-market,,,,,2026-09-30,2026-10-02,Sales leadership,
+committed_arr,SMB,,,,,2026-09-30,2026-10-02,Sales leadership,
+committed_arr,Startups,,,,,2026-09-30,2026-10-02,Sales leadership,
+committed_arr,Public sector,,,,,2026-09-30,2026-10-02,Sales leadership,
+net_new,Enterprise,,A. Chen,RevOps,2026-09-29,,,,"Oakridge Analytics and Fennel Systems were won late August and ordered on 29 September so their ARR lands in September."
+net_new,Public sector,,J. Okoro,Sales,2026-09-05,,,,"Two state-agency deals moved to the Q4 procurement window."
+net_new,Mid-market,,R. Patel,Sales,2026-09-05,,,,"Two renewals signed early with seat upsell."
+bookings,,,,,,2026-09-30,2026-10-02,Sales leadership,
+bookings,Enterprise,,,,,2026-09-30,2026-10-02,Sales leadership,
+bookings,Mid-market,,,,,2026-09-30,2026-10-02,Sales leadership,
+bookings,SMB,,,,,2026-09-30,2026-10-02,Sales leadership,
+bookings,Startups,,,,,2026-09-30,2026-10-02,Sales leadership,
+bookings,Public sector,,,,,2026-09-30,2026-10-02,Sales leadership,
+bookings,,North America,,,,2026-09-30,2026-10-02,Sales leadership,
+bookings,,EMEA,,,,2026-09-30,2026-10-02,Sales leadership,
+bookings,,APAC,,,,2026-09-30,2026-10-02,Sales leadership,

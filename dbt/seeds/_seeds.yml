@@ -120,6 +120,7 @@ seeds:
     description: Commentary attached to plan variances, including the bookings request that has no text yet.
     config:
       column_types:
+        region: varchar
         updated_on: date
         requested_on: date
         due_on: date

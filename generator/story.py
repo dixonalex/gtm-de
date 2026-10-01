@@ -80,6 +80,42 @@ def _slug(name: str) -> str:
     return "".join(ch for ch in name.lower() if ch.isalnum())
 
 
+# Distinct company names for the planted series. Indexed so a rename does not
+# move amounts. Each pair differs by more than one character.
+_FIRM_LEFT = (
+    "Aberfeldy", "Ashcombe", "Barlowe", "Calderwell", "Dunwich",
+    "Elmsworth", "Fairhaven", "Greystoke", "Hambledon", "Iverson",
+    "Kingsmere", "Loxley", "Marlowebury", "Northcote", "Osric",
+    "Pendleton", "Ravenscar", "Stoneleigh", "Thornbury", "Whitstable",
+)
+_FIRM_RIGHT = (
+    "Glassworks", "Foundry", "Atelier", "Letterpress", "Millworks",
+    "Boatyard", "Bindery", "Cooperage", "Tannery", "Ironworks",
+)
+
+
+def series_name(kind: str, i: int, k: int = 0) -> str:
+    if kind == "churn":
+        n = i * 2 + k
+    elif kind == "cut":
+        n = 36 + i * 2 + k
+    elif kind == "exp":
+        n = 72 + i * 2 + k
+    elif kind == "lowell":
+        n = 108 + i
+    elif kind == "pemba":
+        n = 116 + i
+    elif kind == "gap":
+        n = 119 + i
+    else:
+        raise AssertionError(kind)
+    left = _FIRM_LEFT[n % len(_FIRM_LEFT)]
+    right = _FIRM_RIGHT[n // len(_FIRM_LEFT)]
+    if n // len(_FIRM_LEFT) >= len(_FIRM_RIGHT):
+        raise AssertionError(n)
+    return f"{left} {right}"
+
+
 def story_stripe_id(prefix: str, n: int) -> str:
     """Stripe-shaped id. Deterministic, and it does not consume the generator RNG."""
     alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -362,7 +398,7 @@ def _plant_rate_ballast(g) -> None:
 
     Retained dollars sit on an existing cohort account for one month in 2025
     (raises the base under an expansion). Gap dollars are a one-month 2025
-    account with nothing left in 2026. July ending ARR on two Orchard accounts
+    account with nothing left in 2026. July ending ARR on two expansion accounts
     is a same-month top-up, split under the booked-not-billed threshold.
     """
     payload = json.loads((Path(__file__).resolve().parent / "rate_ballast.json").read_text())
@@ -386,17 +422,17 @@ def _plant_rate_ballast(g) -> None:
         n += 1
     for i, row in enumerate(payload["gap"]):
         start, end = span(row["month"])
-        name = f"Siltglass {_slug(row['segment'])} {i + 1}"
+        name = series_name("gap", i)
         acct = _add_account(
             g, 8600 + i, name, row["segment"], countries[row["region"]], "USD", "P. Nair", 40,
         )
         _rate_order(g, acct, 8600 + i, int(row["gap"]), start, end)
     # July 2026 ending ARR, on accounts already in that month's cohort.
     # Kept under $25k each so they are not booked-not-billed.
-    orchard_na = by_name["Orchard Uplift 18.1"]
+    orchard_na = by_name[series_name("exp", 17, 0)]
     for amount, n in ((20_000, 8900), (20_000, 8901), (20_000, 8902), (16_000, 8903)):
         _rate_order(g, orchard_na, n, amount, dt.date(2026, 7, 1), dt.date(2026, 7, 31))
-    _rate_order(g, by_name["Orchard Uplift 9.2"], 8910, 12_000, dt.date(2026, 7, 1), dt.date(2026, 7, 31))
+    _rate_order(g, by_name[series_name("exp", 8, 1)], 8910, 12_000, dt.date(2026, 7, 1), dt.date(2026, 7, 31))
 
 
 def _loss_place(index, kind, k):
@@ -477,11 +513,11 @@ def plant_story(g) -> None:
 
     # Smaller unnamed movements keep the August bridge in band without entering the top-mover list.
     for i in range(8):
-        a = acct(180 + i, f"Lowell Contract {i + 1}", "Mid-market")
+        a = acct(180 + i, series_name("lowell", i), "Mid-market")
         recurring(a, 180 + i, 80_000, seen_from, prior_end)
         recurring(a, 280 + i, 40_000, aug, term_end, order_type="Renewal")
-    for i, name in enumerate(("Pemba Glassworks", "Pemba Meridian", "Pemba Northline")):
-        a = acct(190 + i, name, "Enterprise")
+    for i in range(3):
+        a = acct(190 + i, series_name("pemba", i), "Enterprise")
         recurring(a, 190 + i, 100_000, prior_start, term_end)
         recurring(a, 290 + i, 160_000, aug, term_end, order_type="Add-On")
 
@@ -503,7 +539,7 @@ def plant_story(g) -> None:
         churns, contractions, expansions = schedule[i]
         for k, amount in enumerate(churns):
             n = 700 if i == 0 and k == 0 else 1000 + i * 3 + k
-            name = "Sable Cohort 1" if n == 700 else f"Hale Cohort {i + 1}.{k + 1}"
+            name = series_name("churn", i, k)
             placed = _loss_place(i, "churn", k)
             segment, country = placed or ("Mid-market", "US")
             gone = acct(n, name, segment, country=country, owner=owners[(i + k) % len(owners)])
@@ -513,7 +549,7 @@ def plant_story(g) -> None:
             placed = _loss_place(i, "cut", k)
             segment, country = placed or ("Enterprise" if k % 2 == 0 else "Mid-market", "US")
             held = acct(
-                n, f"Nereid Seat {i + 1}.{k + 1}",
+                n, series_name("cut", i, k),
                 segment, country=country,
                 owner=owners[(i + k + 3) % len(owners)],
             )
@@ -529,7 +565,7 @@ def plant_story(g) -> None:
             placed = _loss_place(i, "exp", k)
             segment, country = placed or ("Enterprise" if k % 2 == 0 else "Mid-market", "US")
             kept = acct(
-                n, f"Orchard Uplift {i + 1}.{k + 1}",
+                n, series_name("exp", i, k),
                 segment, country=country,
                 owner=owners[(i + k + 1) % len(owners)],
             )
@@ -814,7 +850,7 @@ def plant_billing_defects(g) -> None:
     # Three closed-month unmatched invoices, one each in USD, EUR, and JPY.
     # Paid before month-end so they bill and miss the tie-out without sitting in AR.
     # Together with the JPY scale defect this puts unmatched value above 1%.
-    sable = next(a for a in g.accounts if a["Name"] == "Sable Cohort 1")
+    sable = next(a for a in g.accounts if a["Name"] == series_name("churn", 0, 0))
     brightwater = next(a for a in g.accounts if a["Name"] == "Brightwater Systems")
     yen = next(a for a in g.accounts if a["Name"] == "Yen Defect 1")
     _manual_invoice(g, sable, 801, 120_000, dt.date(2026, 8, 12), order_id=None)

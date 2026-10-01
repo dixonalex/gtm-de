@@ -408,6 +408,20 @@ def main() -> None:
         """
     ).fetchall()
     check("commentary text matches the row slice", not borrowed, str(borrowed[:4]))
+    open_notes = con.execute(
+        """
+        select count(*)
+        from marts.rpt_executive_commentary
+        where month_end = date '2026-08-31'
+          and commentary is null
+          and (
+            requested_on is distinct from date '2026-09-30'
+            or due_on is distinct from date '2026-10-02'
+            or requested_from is distinct from 'Sales leadership'
+          )
+        """
+    ).fetchone()[0]
+    check("placeholder commentary is requested 30 Sep and due 2 Oct", open_notes == 0, str(open_notes))
 
     # A loss and a same-size gain under one corporate parent are a planted pair.
     # Account-level amounts, so a parent rollup that happens to net to zero

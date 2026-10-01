@@ -32,6 +32,7 @@
 	$: row = asRows(kpi)[0] || {};
 	$: ready = present(row);
 	$: period = ready ? monthLabel(row.month_end) : "";
+	$: periodShort = period ? period.replace(/ \d{4}$/, "") : "";
 	$: sliceText = ready ? onlyLabel([row.currency, row.segment]) || "Company" : "";
 	$: sources = asRows(freshness)
 		.slice()
@@ -100,7 +101,7 @@
 	/>
 </div>
 
-<ChartBlock title="Bookings to billings, {period.replace(/ \d{4}$/, '')}" subtitle={sliceText}>
+<ChartBlock title={periodShort ? `Bookings to billings, ${periodShort}` : "Bookings to billings"} subtitle={sliceText}>
 	<div slot="toggle" class="inert" aria-label="Break down by">
 		<button type="button" class="on">None</button>
 		<button type="button">Currency</button>
@@ -138,7 +139,7 @@
 </section>
 
 <div class="two-up even">
-	<ChartBlock title="Receivables aging by bucket" subtitle="Mar–{period.slice(0, 3)}">
+	<ChartBlock title="Receivables aging by bucket" subtitle={period ? `Mar–${period.slice(0, 3)}` : ""}>
 		<SparklineTable rows={spark} nameHeader="Bucket" compareHeader="vs Mar" />
 	</ChartBlock>
 	<ChartBlock title="Usage commit burn vs straight line" subtitle={ready ? sliceText || "Annual commits active 1 Jan" : ""}>

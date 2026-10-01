@@ -54,9 +54,20 @@
 	}
 
 	function owner(note) {
-		if (note.author) return `${note.author}, ${note.role} · ${dayLabel(note.updated_on)}`;
-		if (note.due_on) return `Unassigned · Due ${dayLabel(note.due_on)}`;
-		return "";
+		if (!note.author) return "";
+		const updated = dayLabel(note.updated_on);
+		return updated ? `${note.author}, ${note.role} · ${updated}` : `${note.author}, ${note.role}`;
+	}
+
+	function placeholder(note) {
+		const parts = [];
+		const requested = dayLabel(note.requested_on);
+		if (note.requested_from && requested) parts.push(`Requested from ${note.requested_from} on ${requested}`);
+		else if (note.requested_from) parts.push(`Requested from ${note.requested_from}`);
+		if (!note.author) parts.push("Unassigned");
+		const due = dayLabel(note.due_on);
+		if (due && !note.author) parts.push(`Due ${due}`);
+		return parts.join(" · ");
 	}
 
 	function sliceName(note) {
@@ -73,6 +84,7 @@
 
 	$: steps = bridgeSteps(row);
 	$: period = monthLabel(row.month_end);
+	$: periodShort = period ? period.replace(/ \d{4}$/, "") : "";
 	$: prior = monthLabel(row.prior_month_end);
 	$: bar = (value) => {
 		const scale = Math.max(1, ...moved.map((item) => Math.abs(Number(item.net_movement_usd) || 0)));
@@ -111,7 +123,7 @@
 			/>
 		{/if}
 	</ChartBlock>
-	<ChartBlock title="ARR bridge, {period.replace(/ \d{4}$/, '')}" subtitle={sliceText}>
+	<ChartBlock title={periodShort ? `ARR bridge, ${periodShort}` : "ARR bridge"} subtitle={sliceText}>
 		<div slot="toggle" class="inert" aria-label="Break down by">
 			<button type="button" class="on">None</button>
 			<button type="button">Segment</button>
@@ -146,9 +158,7 @@
 							<a href="#arr">View</a>
 						{:else}
 							<em>
-								No commentary for {sliceName(note)} yet.{#if note.requested_from}
-									Requested from {note.requested_from} on {dayLabel(note.requested_on)}.{/if}
-								{#if note.due_on && !note.author} Due {dayLabel(note.due_on)}.{/if}
+								No commentary for {sliceName(note)} yet.{#if placeholder(note)} {placeholder(note)}.{/if}
 							</em>
 						{/if}
 					</td>
@@ -160,7 +170,7 @@
 </section>
 
 <section class="block" id="movers">
-	<h2>Top movers, {period.replace(/ \d{4}$/, '')}</h2>
+	<h2>{periodShort ? `Top movers, ${periodShort}` : "Top movers"}</h2>
 	<div class="two-up even">
 		<div>
 			<h3>Largest gains</h3>

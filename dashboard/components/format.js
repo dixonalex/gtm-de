@@ -111,12 +111,22 @@ export function count(value) {
 }
 
 function parseDate(value) {
-	if (value instanceof Date) return value;
 	if (value == null || value === "") return null;
-	const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
-	if (match) return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
-	const parsed = new Date(value);
-	return Number.isNaN(parsed.getTime()) ? null : parsed;
+	if (typeof value === "number" && (!Number.isFinite(value) || value === 0)) return null;
+	let parsed;
+	if (value instanceof Date) {
+		parsed = Number.isNaN(value.getTime()) ? null : value;
+	} else {
+		const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+		if (match) parsed = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+		else {
+			const fallback = new Date(value);
+			parsed = Number.isNaN(fallback.getTime()) ? null : fallback;
+		}
+	}
+	// An unset date sometimes arrives as the epoch, which formats as 1 Jan.
+	if (!parsed || parsed.getTime() === 0 || parsed.getUTCFullYear() < 2020) return null;
+	return parsed;
 }
 
 export function monthLabel(value) {
