@@ -2,7 +2,7 @@ ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 export GTM_DATA_DIR := $(ROOT)/data
 
 # AS_OF unset is a live extract. make AS_OF=YYYY-MM-DD pins the generator.
-.PHONY: data build fresh all docs ui lab
+.PHONY: data build fresh all docs ui lab dash
 
 data:
 ifdef AS_OF
@@ -35,3 +35,8 @@ ui:
 
 lab:
 	uv run jupyter lab --notebook-dir=notebooks
+
+dash: build
+	cd dashboard && npm install
+	cd dashboard && npm run sources
+	cd dashboard && npm run dev

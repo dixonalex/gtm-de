@@ -154,3 +154,29 @@ models:
         data_tests: [not_null]
       - name: stage_name
         data_tests: [not_null]
+
+  - name: dim_account
+    description: Account name and website with the billing-entity master and corporate parent.
+    columns:
+      - name: account_id
+        data_tests: [unique, not_null]
+      - name: name
+        data_tests: [not_null]
+      - name: master_account_id
+        data_tests: [not_null]
+      - name: ultimate_parent_account_id
+        data_tests: [not_null]
+
+  - name: fct_close_date_slip
+    description: >
+      OpportunityHistory rows in the latest quarter where CloseDate moved later.
+      Amount is converted to USD on the day the date changed.
+    columns:
+      - name: opportunity_id
+        data_tests: [not_null]
+      - name: previous_close_date
+        data_tests: [not_null]
+      - name: close_date
+        data_tests: [not_null]
+      - name: days_slipped
+        data_tests: [not_null]

@@ -1,6 +1,22 @@
 version: 2
 
 models:
+  - name: dq_connector_freshness
+    description: >
+      Last successful Salesforce and Stripe sync, aged from the build clock.
+      PASS, WARN, and ERROR use the same windows as source freshness.
+    columns:
+      - name: connector_id
+        data_tests: [unique, not_null]
+      - name: as_of_date
+        data_tests: [not_null]
+      - name: status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['PASS', 'WARN', 'ERROR']
+
   - name: dq_account_review_queue
     description: >
       Review-tier pairs that do not yet have a steward decision. Ranked by the combined

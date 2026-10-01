@@ -1,0 +1,4 @@
+name: gtm
+type: duckdb
+options:
+  filename: ../../../dbt/gtm_explore.duckdb

@@ -1,0 +1,66 @@
+appearance:
+  default: light
+  switcher: false
+
+theme:
+  colorPalettes:
+    default:
+      light:
+        - "#334155"
+        - "#5b7c99"
+        - "#8d7b6a"
+        - "#94a3b8"
+      dark:
+        - "#334155"
+        - "#5b7c99"
+        - "#8d7b6a"
+        - "#94a3b8"
+  colorScales:
+    default:
+      light:
+        - "#e2e8f0"
+        - "#334155"
+      dark:
+        - "#e2e8f0"
+        - "#334155"
+  colors:
+    primary:
+      light: "#334155"
+      dark: "#334155"
+    accent:
+      light: "#64748b"
+      dark: "#64748b"
+    base:
+      light: "#f4f4f5"
+      dark: "#f4f4f5"
+    info:
+      light: "#64748b"
+      dark: "#64748b"
+    # Muted status colors. Charts use the palette above, not these.
+    positive:
+      light: "#3f6b4e"
+      dark: "#3f6b4e"
+    warning:
+      light: "#8a5a12"
+      dark: "#8a5a12"
+    negative:
+      light: "#8f3d3d"
+      dark: "#8f3d3d"
+
+plugins:
+  components:
+    "@evidence-dev/core-components": {}
+
+  datasources:
+    "@evidence-dev/bigquery": { }
+    "@evidence-dev/csv": { }
+    "@evidence-dev/databricks": { }
+    "@evidence-dev/duckdb": { }
+    "@evidence-dev/mssql": { }
+    "@evidence-dev/mysql": { }
+    "@evidence-dev/postgres": { }
+    "@evidence-dev/source-javascript": { }
+    "@evidence-dev/snowflake": { }
+    "@evidence-dev/sqlite": { }
+    "@evidence-dev/trino": { }
+    "@evidence-dev/motherduck": { }

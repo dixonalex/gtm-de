@@ -10,3 +10,7 @@ dbt/.user.yml
 __pycache__/
 .DS_Store
 .ipynb_checkpoints/
+dashboard/node_modules/
+dashboard/.evidence/
+dashboard/build/
+dashboard/.svelte-kit/
