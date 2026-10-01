@@ -1,0 +1,98 @@
+version: 2
+
+models:
+  - name: int_accounts__deduped
+    description: Account to surviving master. Website domain wins; otherwise normalized name. Survivor is the earliest CreatedDate.
+    columns:
+      - name: account_id
+        data_tests: [unique, not_null]
+      - name: master_account_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__account')
+                field: account_id
+      - name: match_rule
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['website', 'name']
+
+  - name: int_fx__daily_rates
+    description: >
+      Dated conversion rate expanded to a date spine. conversion_rate is local currency units per 1 USD.
+      Bookings convert on CloseDate; billings convert on the invoice created date.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - rate_date
+              - currency_code
+    columns:
+      - name: rate_date
+        data_tests: [not_null]
+      - name: currency_code
+        data_tests: [not_null]
+      - name: conversion_rate
+        data_tests: [not_null]
+
+  - name: int_quote_to_cash
+    description: One row per order. Opportunity synced quote to order quote, plus invoices matched onto the order.
+    columns:
+      - name: order_id
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__order')
+                field: order_id
+      - name: master_account_id
+        data_tests: [not_null]
+      - name: quote_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__quote')
+                field: quote_id
+      - name: synced_quote_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__quote')
+                field: quote_id
+
+  - name: int_invoices__to_order
+    description: Every invoice with the order it was linked to. Fuzzy matches are 1:1 on the order's first-invoice slot.
+    columns:
+      - name: invoice_id
+        data_tests:
+          - unique
+          - not_null
+      - name: order_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__order')
+                field: order_id
+      - name: match_method
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['metadata', 'fuzzy', 'unmatched']
+
+  - name: int_invoices__unmatched
+    description: Invoices with no metadata order and no fuzzy first-invoice match.
+    columns:
+      - name: invoice_id
+        data_tests:
+          - unique
+          - not_null
+      - name: match_method
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['unmatched']

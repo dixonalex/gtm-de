@@ -592,6 +592,7 @@ class Gen:
             return None
         iid = self.stripe_id("in_")
         total = sum(minor(l[3], cur) for l in lines)
+        true_order_id = order_id
         if order_id and self.p(self.cfg["mess"]["invoice_missing_order_ref"]):
             order_id = None
         inv = dict(id=iid, customer_id=cust, number=f"{cust[4:12].upper()}-{self.seq('inv_' + cust):04d}",
@@ -599,7 +600,8 @@ class Gen:
                    currency=cur.lower(), subtotal=total, total=total, amount_due=max(total, 0), amount_paid=0,
                    amount_remaining=max(total, 0), created=created, period_start=period_start,
                    period_end=period_end, due_date=created + dt.timedelta(days=30),
-                   status_transitions_paid_at=None, metadata_salesforce_order_id=order_id, _updated=created)
+                   status_transitions_paid_at=None, metadata_salesforce_order_id=order_id,
+                   _true_order_id=true_order_id, _updated=created)
         self.rows("invoice").append(inv)
         for desc, qty, unit, amt, code, item_id, prorate in lines:
             self.rows("invoice_line_item").append(dict(
@@ -858,7 +860,22 @@ class Gen:
                 df = pd.DataFrame(rows)
                 df.to_csv(out / system / f"{tbl}.csv", index=False)
                 summary.append((system, tbl, len(df)))
+        self.write_truth(out.parent / "truth")
         return summary
+
+    def write_truth(self, truth: Path):
+        """Evaluation keys. No randomness; private fields only, so raw CSVs stay unchanged."""
+        truth.mkdir(parents=True, exist_ok=True)
+        accounts = pd.DataFrame(
+            [{"account_id": a["Id"], "true_master_account_id": a["canonical"]} for a in self.accounts],
+            columns=["account_id", "true_master_account_id"],
+        )
+        invoices = pd.DataFrame(
+            [{"invoice_id": r["id"], "true_order_id": r.get("_true_order_id")} for r in self.rows("invoice")],
+            columns=["invoice_id", "true_order_id"],
+        )
+        accounts.to_csv(truth / "account_duplicates.csv", index=False)
+        invoices.to_csv(truth / "invoice_order.csv", index=False)
 
 
 def main():

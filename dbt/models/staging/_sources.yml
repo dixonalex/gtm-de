@@ -38,19 +38,19 @@ sources:
           loaded_at_field: _loaded_at
       - name: opportunity_line_item
         config:
-          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
+          freshness: null  # transactional child table: covered by parent-table row arrival + connector-level freshness
       - name: quote
         config:
-          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
+          freshness: null  # transactional child table: covered by parent-table row arrival + connector-level freshness
       - name: quote_line_item
         config:
-          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
+          freshness: null  # transactional child table: covered by parent-table row arrival + connector-level freshness
       - name: order
         config:
-          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
+          freshness: null  # transactional child table: covered by parent-table row arrival + connector-level freshness
       - name: order_item
         config:
-          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
+          freshness: null  # transactional child table: covered by parent-table row arrival + connector-level freshness
 
   - name: billing
     description: Stripe-shaped billing objects. Amounts are minor units and currency codes are lowercase.
@@ -68,7 +68,7 @@ sources:
           loaded_at_field: _loaded_at
       - name: invoice_line_item
         config:
-          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
+          freshness: null  # transactional child table: covered by parent-table row arrival + connector-level freshness
       - name: charge
         config:
           freshness:
@@ -77,7 +77,7 @@ sources:
           loaded_at_field: _loaded_at
       - name: usage_record_summary
         config:
-          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
+          freshness: null  # transactional child table: covered by parent-table row arrival + connector-level freshness
 
   - name: fivetran_log
     description: Hourly connector sync log. Both tables read the same file; freshness filters to one connector.
