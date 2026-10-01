@@ -1,26 +1,21 @@
 <script>
 	import ChartCanvas from "./ChartCanvas.svelte";
 	import { money, percent, verdict } from "./format.js";
-	import { FOCUS, INK, MUTED, RULE, axis, text } from "./chartTheme.js";
+	import { FOCUS, INK, MUTED, axis, axisWindow, text, valueAxisTicks } from "./chartTheme.js";
 
 	export let rows = [];
 	export let band = "flow";
 	export let higherIsBetter = true;
 	export let height = 240;
 
+	$: peak = Math.max(1, ...rows.map((row) => Math.max(row.value || 0, row.plan || 0)));
+	$: scale = axisWindow(0, peak, { zero: true });
 	$: option = {
 		animation: false,
 		textStyle: text,
 		legend: { show: false },
-		grid: { left: 8, right: 148, top: 8, bottom: 8, containLabel: true },
-		xAxis: {
-			type: "value",
-			splitNumber: 2,
-			axisLine: { show: false },
-			axisTick: { show: false },
-			axisLabel: { show: false },
-			splitLine: { show: true, lineStyle: { color: RULE, width: 1 } },
-		},
+		grid: { left: 8, right: 16, top: 8, bottom: 8, containLabel: true },
+		xAxis: valueAxisTicks(scale, () => "", { labels: false }),
 		yAxis: {
 			type: "category",
 			data: rows.map((row) => row.label),
@@ -28,32 +23,48 @@
 			...axis,
 			axisLabel: {
 				...axis.axisLabel,
-				color: MUTED,
+				color: (value) => {
+					const row = rows.find((item) => item.label === value);
+					return row && row.current ? FOCUS : MUTED;
+				},
 			},
 		},
 		series: [
 			{
 				type: "bar",
-				barMaxWidth: 14,
+				barWidth: 12,
 				data: rows.map((row) => {
 					const tone = verdict(row.value, row.plan, band, higherIsBetter);
 					const delta = row.value - row.plan;
 					const share = row.plan ? row.value / row.plan : null;
 					return {
-						value: row.value,
-						itemStyle: { color: row.current ? FOCUS : MUTED },
+						value: Math.max(row.value, row.plan || 0),
+						itemStyle: { color: "transparent" },
 						label: {
 							show: true,
 							position: "right",
 							distance: 8,
-							color: tone.color,
+							color: row.current ? FOCUS : tone.color,
 							fontSize: 12,
+							fontWeight: row.current ? 600 : 400,
 							fontFamily: "IBM Plex Sans, sans-serif",
 							formatter: () =>
 								`${money(row.value)} · ${money(delta, { signed: true })} · ${percent(share)} of plan`,
 						},
 					};
 				}),
+				emphasis: { disabled: true },
+				z: 1,
+			},
+			{
+				type: "bar",
+				barWidth: 12,
+				barGap: "-100%",
+				data: rows.map((row) => ({
+					value: row.value,
+					itemStyle: { color: row.current ? FOCUS : MUTED },
+				})),
+				z: 2,
 			},
 			{
 				type: "scatter",

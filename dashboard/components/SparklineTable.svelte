@@ -69,8 +69,6 @@
 		text-align: left;
 		font-size: 12px;
 		font-weight: 500;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
 		color: var(--color-ink-muted);
 		border-bottom: 1px solid var(--color-ink);
 		padding: 0 12px 8px 0;

@@ -1,6 +1,5 @@
 <script>
 	import { dayLabel } from "./format.js";
-	import StatusChip from "./StatusChip.svelte";
 
 	export let eyebrow = "";
 	export let title = "";
@@ -48,15 +47,20 @@
 <header class="header">
 	<div class="titles">
 		{#if eyebrow}<p class="eyebrow">{eyebrow}</p>{/if}
-		<div class="title-row">
-			<h1>{title}<slot name="after-title" /></h1>
+		<h1>{title}<slot name="after-title" /></h1>
+		<div class="controls">
 			<slot name="controls" />
 		</div>
 	</div>
 	<aside>
 		<div class="sources">
 			{#each sources as source}
-				<StatusChip status={source.status} measured={source.measured} threshold={source.threshold} />
+				<p class="fresh" class:late={source.late}>
+					<span class="dot" class:late={source.late}></span>
+					<span>
+						{source.name} · synced {source.ago}{source.sla ? ` · SLA ${source.sla}` : ""}
+					</span>
+				</p>
 			{/each}
 		</div>
 		{#if asOfLabel}<p class="asof">Data as of {asOfLabel}</p>{/if}
@@ -85,12 +89,6 @@
 		text-transform: uppercase;
 		color: var(--color-ink-muted);
 	}
-	.title-row {
-		display: flex;
-		align-items: baseline;
-		gap: 16px;
-		flex-wrap: wrap;
-	}
 	h1 {
 		margin: 0;
 		font-family: var(--font-display);
@@ -99,6 +97,9 @@
 		font-weight: 500;
 		letter-spacing: -0.01em;
 		color: var(--color-ink);
+	}
+	.controls {
+		margin-top: 16px;
 	}
 	aside {
 		display: flex;
@@ -113,6 +114,27 @@
 		align-items: flex-end;
 		gap: 6px;
 	}
+	.fresh {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin: 0;
+		font-size: 13px;
+		color: var(--color-ink-muted);
+	}
+	.fresh.late {
+		color: var(--color-warning);
+	}
+	.dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: var(--color-context);
+		flex: 0 0 auto;
+	}
+	.dot.late {
+		background: var(--color-warning);
+	}
 	.asof,
 	.note,
 	.links {
@@ -122,17 +144,17 @@
 	}
 	.links {
 		display: flex;
-		gap: 12px;
+		gap: 16px;
 	}
 	button {
 		background: none;
 		border: 0;
 		padding: 0;
 		font: inherit;
+		font-weight: 500;
 		color: var(--color-focus);
 		cursor: pointer;
-		text-decoration: underline;
-		text-underline-offset: 2px;
+		text-decoration: none;
 	}
 	@media (max-width: 800px) {
 		.header {

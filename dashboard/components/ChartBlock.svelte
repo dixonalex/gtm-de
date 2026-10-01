@@ -49,6 +49,8 @@
 	.sub a {
 		margin-left: 8px;
 		color: var(--color-focus);
+		font-weight: 500;
+		text-decoration: none;
 	}
 	.toggle {
 		flex: 0 0 auto;

@@ -9,24 +9,28 @@
 </script>
 
 <div class="queue">
+	<div class="head">
+		<span>Account A</span>
+		<span>Account B</span>
+		<span>Signals</span>
+		<span class="right">ARR at stake</span>
+		<span class="right">Decision</span>
+	</div>
 	{#each rows as row}
 		<article class:decided={row.decision && row.decision !== "pending"}>
-			<div class="pair">
-				<div>
-					<div class="name">{row.left.name}</div>
-					<div class="meta">{meta(row.left)}</div>
-				</div>
-				<div class="vs">/</div>
-				<div>
-					<div class="name">{row.right.name}</div>
-					<div class="meta">{meta(row.right)}</div>
-				</div>
+			<div>
+				<div class="name">{row.left.name}</div>
+				<div class="meta">{meta(row.left)}</div>
+			</div>
+			<div>
+				<div class="name">{row.right.name}</div>
+				<div class="meta">{meta(row.right)}</div>
 			</div>
 			<div class="signals">
 				{#if row.forSignals}<p><span>For</span> {row.forSignals}</p>{/if}
 				{#if row.againstSignals}<p><span>Against</span> {row.againstSignals}</p>{/if}
 			</div>
-			<div class="stake num">{money(row.arr)} at stake</div>
+			<div class="stake num">{money(row.arr)}</div>
 			<div class="decision">
 				{#if row.decision && row.decision !== "pending"}
 					<p class="who">{row.decision} · {row.who} · {dayLabel(row.when)}</p>
@@ -43,10 +47,20 @@
 	.queue {
 		border-top: 1px solid var(--color-ink);
 	}
+	.head,
 	article {
 		display: grid;
-		grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr) 140px 180px;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) 120px 160px;
 		gap: 16px;
+	}
+	.head {
+		padding: 0 0 8px;
+		border-bottom: 1px solid var(--color-ink);
+		font-size: 12px;
+		font-weight: 500;
+		color: var(--color-ink-muted);
+	}
+	article {
 		padding: 14px 0;
 		border-bottom: 1px solid var(--color-rule);
 		font-size: 14px;
@@ -56,14 +70,6 @@
 	}
 	article.decided .name,
 	article.decided .stake {
-		color: var(--color-context);
-	}
-	.pair {
-		display: grid;
-		grid-template-columns: 1fr auto 1fr;
-		gap: 8px;
-	}
-	.vs {
 		color: var(--color-context);
 	}
 	.name {
@@ -80,13 +86,12 @@
 		color: var(--color-ink-muted);
 	}
 	.signals span {
-		font-size: 11px;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
+		font-weight: 500;
 		margin-right: 6px;
 	}
 	.stake {
 		font-variant-numeric: tabular-nums;
+		text-align: right;
 	}
 	.decision {
 		text-align: right;
@@ -94,12 +99,17 @@
 	.who {
 		margin: 0 0 4px;
 	}
+	.right {
+		text-align: right;
+	}
 	button {
 		background: none;
 		border: 0;
 		padding: 0;
 		color: var(--color-focus);
 		font: inherit;
+		font-weight: 500;
 		cursor: pointer;
+		text-decoration: none;
 	}
 </style>

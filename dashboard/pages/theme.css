@@ -99,7 +99,19 @@ body,
 }
 
 .gtm-frame {
+	padding-top: 32px;
 	padding-bottom: 64px;
+}
+
+/* Evidence adds a top margin once its own header is hidden. The frame owns the 32px. */
+main {
+	margin-top: 0 !important;
+}
+
+.gtm-frame a {
+	color: var(--color-focus);
+	font-weight: 500;
+	text-decoration: none;
 }
 
 .num {

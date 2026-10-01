@@ -10,10 +10,6 @@ function num(value) {
 	return Number.isFinite(n) ? n : null;
 }
 
-function trim(n, digits) {
-	return n.toFixed(digits).replace(/\.0+$/, "");
-}
-
 export function money(value, { signed = false } = {}) {
 	const n = num(value);
 	if (n == null) return "";
@@ -22,29 +18,38 @@ export function money(value, { signed = false } = {}) {
 	const v = Math.abs(n);
 	let body;
 	if (v >= 1_000_000) {
-		const millions = v / 1_000_000;
-		const text = trim(millions, millions >= 100 ? 0 : 1);
-		body = text === "0" ? null : `$${text}M`;
+		body = `$${(v / 1_000_000).toFixed(1)}M`;
 	} else if (v >= 1_000) {
 		const thousands = v / 1_000;
 		const digits = thousands >= 10 ? 0 : 1;
-		const text = trim(thousands, digits);
-		body = text === "0" ? null : `$${text}K`;
+		body = `$${thousands.toFixed(digits)}K`;
 	} else {
 		body = `$${Math.round(v).toLocaleString("en-US")}`;
 	}
-	if (!body) return "$0";
 	if (negative) return `${MINUS}${body}`;
 	if (signed) return `+${body}`;
 	return body;
 }
 
-export function percent(value, digits) {
+/** Hairline labels: $124M when the tick is a whole million, one decimal otherwise. */
+export function axisMoney(value) {
+	const n = num(value);
+	if (n == null) return "";
+	const abs = Math.abs(n);
+	if (abs >= 1_000_000) {
+		const millions = abs / 1_000_000;
+		const digits = Math.abs(millions - Math.round(millions)) < 0.05 ? 0 : 1;
+		const body = `$${millions.toFixed(digits)}M`;
+		return n < 0 ? `${MINUS}${body}` : body;
+	}
+	return money(n);
+}
+
+export function percent(value, digits = 0) {
 	const n = num(value);
 	if (n == null) return "";
 	const pct = Math.abs(n) <= 2 ? n * 100 : n;
-	const d = digits ?? (Math.abs(pct - Math.round(pct)) < 0.05 ? 0 : 1);
-	const text = trim(Math.abs(pct), d);
+	const text = Math.abs(pct).toFixed(digits);
 	if (Number(text) === 0) return "0%";
 	return `${pct < 0 ? MINUS : ""}${text}%`;
 }
@@ -52,9 +57,9 @@ export function percent(value, digits) {
 export function points(value) {
 	const n = num(value);
 	if (n == null) return "";
-	if (Math.abs(n) < 0.05) return "0 pt";
+	if (Math.abs(n) < 0.05) return "0.0 pt";
 	const sign = n < 0 ? MINUS : "+";
-	return `${sign}${trim(Math.abs(n), 1)} pt`;
+	return `${sign}${Math.abs(n).toFixed(1)} pt`;
 }
 
 export function days(value) {

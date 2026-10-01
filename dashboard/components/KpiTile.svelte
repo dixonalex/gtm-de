@@ -1,5 +1,5 @@
 <script>
-	import { formatDelta, formatValue, verdict } from "./format.js";
+	import { formatDelta, formatValue, percent, verdict } from "./format.js";
 
 	export let label = "";
 	export let period = "";
@@ -12,7 +12,10 @@
 	export let higherIsBetter = true;
 
 	$: tone = verdict(value, plan, band, higherIsBetter);
-	$: vsPlan = formatDelta(value, plan, format);
+	$: vsPlan =
+		format === "money" && plan != null && plan !== ""
+			? `${formatDelta(value, plan, format)} · ${percent(Number(value) / Number(plan))}`
+			: formatDelta(value, plan, format);
 	$: vsPrior =
 		prior == null || prior === ""
 			? ""
@@ -29,6 +32,8 @@
 <style>
 	.tile {
 		min-width: 0;
+		border-top: 1px solid var(--color-ink);
+		padding-top: 16px;
 	}
 	.label {
 		margin: 0 0 8px;

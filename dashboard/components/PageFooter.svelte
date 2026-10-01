@@ -14,10 +14,9 @@
 	{/if}
 	{#if definitions.length}
 		<p class="defs" id="definitions">
-			<span>Definitions</span>
-			{#each definitions as item, i}
-				{#if i > 0}<span class="dot">·</span>{/if}
-				<a href={item.href || "#"}>{item.label}</a>
+			<span class="kicker">Definitions</span>
+			{#each definitions as item}
+				<a href={item.href || "#definitions"}>{item.label}</a>
 			{/each}
 		</p>
 	{/if}
@@ -48,19 +47,22 @@
 		margin-right: 6px;
 	}
 	.defs {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 16px;
+		align-items: baseline;
 		margin: 0 0 8px;
 		font-size: 12px;
+		color: var(--color-ink-muted);
+	}
+	.kicker {
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: var(--color-ink-muted);
 	}
 	.defs a {
 		color: var(--color-focus);
+		font-weight: 500;
 		text-decoration: none;
-		letter-spacing: 0.08em;
-	}
-	.dot {
-		margin: 0 8px;
 	}
 	.models {
 		margin: 0;

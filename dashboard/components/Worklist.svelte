@@ -11,22 +11,28 @@
 	}
 
 	function geometry(age, sla) {
-		const scale = Math.max(age, sla, 1);
+		const ratio = sla ? age / sla : 0;
 		return {
-			fill: (age / scale) * 96,
-			tick: (sla / scale) * 96,
+			fill: (Math.min(ratio, 1.5) / 1.5) * 96,
+			tick: 64,
 		};
+	}
+
+	function ageText(age) {
+		if (age < 1) return "<1d";
+		return `${Math.round(age)}d`;
 	}
 </script>
 
-<table>
+<table id="worklist">
 	<thead>
 		<tr>
 			<th>Record</th>
+			<th>Exception</th>
 			<th>Age vs SLA</th>
-			<th class="right">Amount</th>
+			<th class="right">At stake</th>
 			<th>Owner</th>
-			<th></th>
+			<th class="right">Action</th>
 		</tr>
 	</thead>
 	<tbody>
@@ -37,20 +43,20 @@
 				<td>
 					<div class="name">{row.name}</div>
 					<div class="id">{row.id}</div>
-					{#if row.description}<div class="desc">{row.description}</div>{/if}
 				</td>
+				<td class="exception">{row.description}</td>
 				<td>
 					<div class="age">
 						<div class="track">
 							<div class="fill {kind}" style="width: {geo.fill}px"></div>
 							<div class="tick" style="left: {geo.tick}px"></div>
 						</div>
-						<span class="age-text {kind} num">{Math.round(row.age)}d / {Math.round(row.sla)}d</span>
+						<span class="age-text {kind} num">{ageText(row.age)} / {Math.round(row.sla)}d</span>
 					</div>
 				</td>
 				<td class="right num">{money(row.amount)}</td>
 				<td>{row.owner}</td>
-				<td class="action">{#if row.action}<a href={row.href || "#"}>{row.action}</a>{/if}</td>
+				<td class="action right">{#if row.action}<a href={row.href || "#worklist"}>{row.action}</a>{/if}</td>
 			</tr>
 		{/each}
 	</tbody>
@@ -66,8 +72,6 @@
 		text-align: left;
 		font-size: 12px;
 		font-weight: 500;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
 		color: var(--color-ink-muted);
 		border-bottom: 1px solid var(--color-ink);
 		padding: 0 12px 8px 0;
@@ -86,10 +90,8 @@
 		color: var(--color-context);
 		margin-top: 2px;
 	}
-	.desc {
-		margin-top: 4px;
+	.exception {
 		color: var(--color-ink-muted);
-		font-size: 13px;
 	}
 	.age {
 		display: flex;
@@ -101,6 +103,7 @@
 		width: 96px;
 		height: 6px;
 		background: var(--color-wash);
+		flex: 0 0 96px;
 	}
 	.fill {
 		position: absolute;
@@ -126,6 +129,7 @@
 	}
 	.age-text {
 		font-size: 13px;
+		white-space: nowrap;
 	}
 	.age-text.ok {
 		color: var(--color-ink-muted);
@@ -142,6 +146,7 @@
 	}
 	.action a {
 		color: var(--color-focus);
+		font-weight: 500;
 		text-decoration: none;
 		white-space: nowrap;
 	}

@@ -14,16 +14,14 @@
 	import SparklineTable from "./SparklineTable.svelte";
 	import StatusChip from "./StatusChip.svelte";
 	import Worklist from "./Worklist.svelte";
-	import { monthLabel } from "./format.js";
-
 	// Fixture numbers from docs/design/screen_numbers.json (Aug 2026 extract).
+	// Bridge adds Reactivation at 0 so the zero tick is visible. Segment shares are a
+	// five-way split of company ARR; the warehouse series is not queried from the gallery.
 	const arr = [
 		104428264, 109823628, 114272149, 116596755, 118478401, 120406493, 122062048, 126248814,
 	];
 	const gaps = [-200000, -600000, -900000, -1400000, -1900000, -2100000, -1800000, -2400000];
-	const labels = ["2026-01-31", "2026-02-28", "2026-03-31", "2026-04-30", "2026-05-31", "2026-06-30", "2026-07-31", "2026-08-31"].map(
-		monthLabel,
-	);
+	const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"];
 	const plan = arr.map((value, i) => value - gaps[i]);
 
 	const bridge = [
@@ -32,15 +30,36 @@
 		{ label: "Expansion", value: 1563239, role: "up" },
 		{ label: "Contraction", value: -571806, role: "down" },
 		{ label: "Churn", value: -400000, role: "down" },
+		{ label: "Reactivation", value: 0, role: "up" },
 		{ label: "Closing", value: 126248814, role: "close" },
 	];
 
 	const shares = [
-		["Enterprise", 0.48],
-		["Mid-market", 0.27],
-		["SMB", 0.15],
-		["Public sector", 0.1],
+		["Enterprise", 0.505],
+		["Mid-market", 0.22],
+		["SMB", 0.12],
+		["Startups", 0.07],
+		["Public sector", 0.085],
 	];
+
+	const quota = 14229585;
+	const slicing = {
+		period: "2026-08",
+		compare: "plan",
+		periods: [
+			{ value: "2026-07", label: "Jul 2026" },
+			{ value: "2026-08", label: "Aug 2026" },
+		],
+		compares: [
+			{ value: "plan", label: "Plan" },
+			{ value: "prior", label: "Prior period" },
+		],
+		filters: [
+			{ label: "Segment", value: "Enterprise", active: true, options: ["All", "Enterprise", "Mid-market"] },
+			{ label: "Region", value: "All", active: false, options: ["All", "Americas", "EMEA"] },
+		],
+		context: "Aug 2026 · vs plan · Segment Enterprise",
+	};
 </script>
 
 <PageHeader
@@ -49,35 +68,17 @@
 	asOf="2026-09-30"
 	note="August is closed. September is open."
 	sources={[
-		{ status: "pass", measured: "12m", threshold: "SLA 24h" },
-		{ status: "warn", measured: "31h", threshold: "SLA 24h" },
+		{ name: "Salesforce", ago: "12m ago" },
+		{ name: "Billing", ago: "31h ago", sla: "24h", late: true },
 	]}
-		exportRows={[
+	exportRows={[
 		{ step: "Opening", usd: 122062048 },
 		{ step: "Closing", usd: 126248814 },
 	]}
 >
 	<CaveatMarker slot="after-title" n={1} />
-	<p slot="controls" class="control-note">Controls slot</p>
+	<SlicingBar slot="controls" {...slicing} />
 </PageHeader>
-
-<SlicingBar
-	period="2026-08"
-	compare="plan"
-	periods={[
-		{ value: "2026-07", label: "Jul 2026" },
-		{ value: "2026-08", label: "Aug 2026" },
-	]}
-	compares={[
-		{ value: "plan", label: "Plan" },
-		{ value: "prior", label: "Prior period" },
-	]}
-	filters={[
-		{ label: "Segment", value: "Enterprise", active: true, options: ["All", "Enterprise", "Mid-market"] },
-		{ label: "Region", value: "All", active: false, options: ["All", "Americas", "EMEA"] },
-	]}
-	context="Aug 2026 · vs plan · Segment Enterprise"
-/>
 
 <section class="group">
 	<h2>Status</h2>
@@ -93,6 +94,16 @@
 	<h2>KPI tile</h2>
 	<div class="tiles">
 		<KpiTile
+			label="ARR"
+			period="Aug 2026"
+			value={126248814}
+			plan={128648814}
+			prior={122062048}
+			priorLabel="Jul 2026"
+			format="money"
+			band="balance"
+		/>
+		<KpiTile
 			label="NRR"
 			period="Aug 2026"
 			value={1.028932881400198}
@@ -103,13 +114,13 @@
 			band="balance"
 		/>
 		<KpiTile
-			label="ARR"
+			label="GRR"
 			period="Aug 2026"
-			value={126248814}
-			plan={128648814}
-			prior={122062048}
+			value={0.9137}
+			plan={0.9237}
+			prior={0.918}
 			priorLabel="Jul 2026"
-			format="money"
+			format="percent"
 			band="balance"
 		/>
 		<KpiTile label="DSO" period="Aug 2026" value={45.1} plan={null} format="days" band="flow" higherIsBetter={false} />
@@ -118,9 +129,9 @@
 
 <section class="group">
 	<h2>Bullet KPI</h2>
-	<div class="tiles">
-		<BulletKpi label="Won, inside band" value={0.98} quota={1} band="flow" />
-		<BulletKpi label="Won QTD" value={11525964} quota={14229585} band="flow" />
+	<div class="bullets">
+		<BulletKpi label="Won QTD" period="Q3 2026" value={quota * 0.98} quota={quota} band="flow" />
+		<BulletKpi label="Won QTD" period="Q3 2026" value={11525964} quota={quota} band="flow" />
 	</div>
 </section>
 
@@ -130,7 +141,14 @@
 	definitionHref="#definitions"
 >
 	<p slot="toggle">Break down by segment</p>
-	<ActualVsPlanLine {labels} actual={arr} {plan} showGap band="balance" event={{ label: "Close", at: "Aug 2026" }} />
+	<ActualVsPlanLine
+		labels={months}
+		actual={arr}
+		{plan}
+		showGap
+		band="balance"
+		event={{ label: "Jun · Commit price change", at: "Jun" }}
+	/>
 </ChartBlock>
 
 <ChartBlock title="ARR bridge, truncated axis" subtitle="USD · Aug 2026 · company" definitionHref="#definitions">
@@ -144,11 +162,11 @@
 <ChartBlock title="ARR by month, vs plan" subtitle="USD · Jan–Aug 2026" definitionHref="#definitions">
 	<BarsWithPlanTick
 		band="balance"
-		rows={labels.map((label, i) => ({
+		rows={months.map((label, i) => ({
 			label,
 			value: arr[i],
 			plan: plan[i],
-			current: i === labels.length - 1,
+			current: i === months.length - 1,
 		}))}
 		height={320}
 	/>
@@ -158,7 +176,7 @@
 	<SmallMultiples
 		panels={shares.map(([title, share]) => ({
 			title,
-			labels,
+			labels: months,
 			values: arr.map((value) => value * share),
 		}))}
 	/>
@@ -185,19 +203,39 @@
 	<Worklist
 		rows={[
 			{
-				name: "Corvid Robotics",
-				id: "006STORY",
-				description: "Won without an order",
-				age: 0,
+				name: "Northwind Logistics",
+				id: "006STORY0000201YHA",
+				description: "Won, no order",
+				age: 9,
 				sla: 3,
-				amount: 310000,
+				amount: 412000,
 				owner: "M. Okafor",
 				action: "Create order →",
 			},
 			{
+				name: "Halvorsen Group",
+				id: "801STORY0000202YHA",
+				description: "Invoice unmatched to order",
+				age: 6,
+				sla: 5,
+				amount: 186000,
+				owner: "J. Reyes",
+				action: "Match invoice →",
+			},
+			{
+				name: "Ostrander Freight",
+				id: "801STORY0000203YHA",
+				description: "Cancelled order still invoicing",
+				age: 4,
+				sla: 2,
+				amount: 128000,
+				owner: "J. Reyes",
+				action: "Stop billing →",
+			},
+			{
 				name: "Larkspur Energy",
-				id: "006STORY",
-				description: "Won without an order",
+				id: "006STORY0000204YHA",
+				description: "Won, no order",
 				age: 2,
 				sla: 3,
 				amount: 530000,
@@ -205,14 +243,64 @@
 				action: "Create order →",
 			},
 			{
-				name: "Northwind Logistics",
-				id: "006STORY",
-				description: "Won without an order",
-				age: 9,
+				name: "Corvid Robotics",
+				id: "006STORY0000205YHA",
+				description: "Amount ≠ sum of line items",
+				age: 0,
 				sla: 3,
-				amount: 412000,
+				amount: 310000,
 				owner: "M. Okafor",
-				action: "Create order →",
+				action: "Review quote →",
+			},
+			{
+				name: "Tidewater Health",
+				id: "801STORY0000606YHA",
+				description: "Reduction order awaiting approval",
+				age: 1,
+				sla: 5,
+				amount: 240000,
+				owner: "M. Okafor",
+				action: "Approve →",
+			},
+			{
+				name: "Pinecrest Media",
+				id: "801STORY0000207YHA",
+				description: "Invoice unmatched to order",
+				age: 3,
+				sla: 5,
+				amount: 205000,
+				owner: "J. Reyes",
+				action: "Match invoice →",
+			},
+			{
+				name: "Saltmarsh Bank",
+				id: "801STORY0000608YHA",
+				description: "Reduction order awaiting approval",
+				age: 2,
+				sla: 5,
+				amount: 150000,
+				owner: "A. Chen",
+				action: "Approve →",
+			},
+			{
+				name: "Kestrel Bio",
+				id: "006STORY0000209YHA",
+				description: "Amount ≠ sum of line items",
+				age: 2,
+				sla: 3,
+				amount: 95000,
+				owner: "A. Chen",
+				action: "Review quote →",
+			},
+			{
+				name: "Ferrow Studios",
+				id: "801STORY0000210YHA",
+				description: "Invoice unmatched to order",
+				age: 1,
+				sla: 5,
+				amount: 44000,
+				owner: "J. Reyes",
+				action: "Match invoice →",
 			},
 		]}
 	/>
@@ -267,16 +355,20 @@
 		font-size: 18px;
 		font-weight: 600;
 	}
-	.row,
-	.tiles {
+	.row {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 28px;
 		align-items: flex-start;
 	}
-	.control-note {
-		margin: 0;
-		font-size: 13px;
-		color: var(--color-ink-muted);
+	.tiles {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 32px;
+	}
+	.bullets {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 32px;
 	}
 </style>
