@@ -287,9 +287,13 @@ async function runMobile() {
 		["/finance/", "Bookings to billings", false],
 		["/data-health/", "Pipeline and tests", false],
 	];
-	const phoneFrame = (src) => `(() => {
+	const frames = [
+		[390, 844],
+		[360, 800],
+	];
+	const phoneFrame = (src, width, height) => `(() => {
 		document.open();
-		document.write('<!DOCTYPE html><html><body style="margin:0"><iframe id="phone" title="phone" style="width:390px;height:844px;border:0;display:block" src="${src}"></iframe></body></html>');
+		document.write('<!DOCTYPE html><html><body style="margin:0"><iframe id="phone" title="phone" style="width:${width}px;height:${height}px;border:0;display:block" src="${src}"></iframe></body></html>');
 		document.close();
 		return "ok";
 	})()`;
@@ -318,12 +322,18 @@ async function runMobile() {
 			if (scrollsX(el)) continue;
 			const box = el.getBoundingClientRect();
 			if (box.width < 1 || box.height < 1) continue;
-			if (box.right > viewW + 1) {
-				wide.push(el.tagName + "." + String(el.className || "").slice(0, 40) + " " + Math.round(box.right));
+			const ox = win.getComputedStyle(el).overflowX;
+			const clips = ox === "auto" || ox === "scroll" || ox === "hidden" || ox === "clip";
+			const spill = !clips && el.scrollWidth > el.clientWidth + 1 && box.left + el.scrollWidth > viewW + 1;
+			if (box.right > viewW + 1 || spill) {
+				const text = (el.innerText || "").trim().replace(/\\s+/g, " ").slice(0, 48);
+				wide.push(el.tagName + "." + String(el.className || "").slice(0, 40) + " " + Math.round(Math.max(box.right, box.left + el.scrollWidth)) + (text ? ' "' + text + '"' : ""));
 				if (wide.length >= 6) break;
 			}
 		}
-		if (wide.length) problems.push("horizontal overflow " + doc.documentElement.scrollWidth + ">" + viewW + " " + wide.join(" | "));
+		if (doc.documentElement.scrollWidth > viewW + 1 || wide.length) {
+			problems.push("horizontal overflow " + doc.documentElement.scrollWidth + ">" + viewW + (wide.length ? " " + wide.join(" | ") : ""));
+		}
 		const charts = [...doc.querySelectorAll(".canvas")];
 		if (charts.some((node) => !node.querySelector("svg"))) problems.push("chart is not svg");
 		for (const svg of doc.querySelectorAll(".canvas svg")) {
@@ -375,27 +385,29 @@ async function runMobile() {
 		}
 		return problems.join(" || ");
 	`);
-	for (const [path, marker, kpis] of routes) {
-		await send("Page.navigate", { url: `${base}/` });
-		await waitFor(`document.body ? "ready" : ""`, (text) => text === "ready", `${marker} host`);
-		await evaluate(phoneFrame(`${base}${path}`));
-		await waitFor(
-			inPhone(`return (doc.body && doc.body.innerText.includes(${JSON.stringify(marker)})) ? "ready" : "";`),
-			(text) => text === "ready",
-			`${marker} mobile`,
-		);
-		await waitFor(
-			inPhone(`
-				const charts = [...doc.querySelectorAll(".canvas")];
-				if (!charts.length) return "ready";
-				return charts.every((node) => node.querySelector("svg")) ? "ready" : "";
-			`),
-			(text) => text === "ready",
-			`${marker} charts`,
-		);
-		await evaluate(inPhone(`win.scrollTo(0, 0); return "ok";`));
-		const found = String(await evaluate(auditFor(kpis)));
-		if (found) failures.push(`${marker}: ${found}`);
+	for (const [width, height] of frames) {
+		for (const [path, marker, kpis] of routes) {
+			await send("Page.navigate", { url: `${base}/` });
+			await waitFor(`document.body ? "ready" : ""`, (text) => text === "ready", `${marker} host`);
+			await evaluate(phoneFrame(`${base}${path}`, width, height));
+			await waitFor(
+				inPhone(`return (doc.body && doc.body.innerText.includes(${JSON.stringify(marker)})) ? "ready" : "";`),
+				(text) => text === "ready",
+				`${width} ${marker} mobile`,
+			);
+			await waitFor(
+				inPhone(`
+					const charts = [...doc.querySelectorAll(".canvas")];
+					if (!charts.length) return "ready";
+					return charts.every((node) => node.querySelector("svg")) ? "ready" : "";
+				`),
+				(text) => text === "ready",
+				`${width} ${marker} charts`,
+			);
+			await evaluate(inPhone(`win.scrollTo(0, 0); return "ok";`));
+			const found = String(await evaluate(auditFor(kpis)));
+			if (found) failures.push(`${width}x${height} ${marker}: ${found}`);
+		}
 	}
 }
 
