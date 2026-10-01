@@ -248,6 +248,7 @@ joined as (
             when '${inputs.entity.value}' = 'parent' then p.name
             else m.name
         end as customer_name,
+        a.master_account_id,
         a.committed_arr_usd
     from gtm.arr_monthly a
     inner join latest l on a.month_end = l.month_end
@@ -256,6 +257,7 @@ joined as (
 )
 select
     '<span>' || customer_name || '</span><span style="display:none">' || customer_id || '</span>' as customer_name,
+    count(distinct master_account_id) as entities_rolled_up,
     sum(committed_arr_usd) as committed_arr_usd
 from joined
 group by customer_name, customer_id
@@ -265,5 +267,6 @@ limit 20
 
 <DataTable data={top_customers} rows=20 search=true>
     <Column id=customer_name title="Customer" contentType=html wrap=true/>
+    <Column id=entities_rolled_up title="Entities rolled up" fmt=num0/>
     <Column id=committed_arr_usd title="Committed ARR" fmt=usd1m/>
 </DataTable>
