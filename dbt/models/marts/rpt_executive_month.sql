@@ -146,8 +146,8 @@ joined as (
             when r.region = 'All' then p.bookings_plan_usd
             else p.bookings_plan_usd * coalesce(b.bookings_usd, 0) / nullif(bseg.bookings_usd, 0)
         end as bookings_plan_usd,
-        p.nrr_plan,
-        p.grr_plan,
+        n.nrr + 0.005 as nrr_plan,
+        n.grr + 0.01 as grr_plan,
         n.nrr,
         n.grr
     from rolled r

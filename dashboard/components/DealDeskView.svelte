@@ -19,6 +19,14 @@
 		cancelled_still_invoicing: "Cancelled order still invoicing",
 	};
 
+	const ACTIONS = {
+		won_without_order: "Create order →",
+		invoice_unmatched: "Match invoice →",
+		cancelled_still_invoicing: "Stop invoice →",
+		reduction_awaiting_approval: "Approve reduction →",
+		amount_mismatch: "Review lines →",
+	};
+
 	function ago(row) {
 		const minutes = Number(row.age_minutes);
 		if (minutes < 60) return `${Math.round(minutes)}m ago`;
@@ -34,7 +42,7 @@
 			sla: Number(row.sla_bd),
 			amount: Number(row.amount_usd),
 			owner: row.owner_name,
-			action: "Open record →",
+			action: ACTIONS[row.exception_type] || "Open record →",
 			href: "#exceptions",
 			caveat: row.exception_type === "invoice_unmatched" ? 1 : 0,
 		};

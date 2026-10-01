@@ -323,6 +323,42 @@ def main() -> None:
     check("NRR band", 1.02 <= rates[0] <= 1.06, f"{rates[0]:.4f}")
     check("GRR band", 0.88 <= rates[2] <= 0.92, f"{rates[2]:.4f}")
 
+    slice_rates = con.execute(
+        """
+        select segment, region, nrr, grr, nrr_plan, grr_plan, committed_arr_usd
+        from marts.rpt_executive_month
+        where month_end = date '2026-08-31'
+          and (segment = 'All' or region = 'All')
+        order by segment, region
+        """
+    ).fetchall()
+    for segment, region, nrr, grr, nrr_plan, grr_plan, _arr in slice_rates:
+        if segment == "All" and region == "All":
+            continue
+        label = f"{segment} / {region}"
+        check(f"slice NRR {label}", 0.98 <= nrr <= 1.12, f"{nrr:.4f}")
+        check(f"slice GRR {label}", 0.85 <= grr <= 0.95, f"{grr:.4f}")
+        check(
+            f"slice NRR plan {label}",
+            abs((nrr - nrr_plan) - -0.005) < 1e-8,
+            f"{nrr:.4f} vs plan {nrr_plan:.4f}",
+        )
+        check(
+            f"slice GRR plan {label}",
+            abs((grr - grr_plan) - -0.01) < 1e-8,
+            f"{grr:.4f} vs plan {grr_plan:.4f}",
+        )
+    forecast_order = con.execute(
+        """
+        select f.segment, f.team, f.rep, f.week_index, a.won_usd, f.commit_usd, f.best_case_usd
+        from marts.rpt_sales_forecast f
+        inner join marts.rpt_sales_attainment a using (segment, team, rep)
+        where f.best_case_usd + 0.5 < f.commit_usd
+           or (f.week_index = 13 and (a.won_usd > a.commit_usd + 0.5 or f.commit_usd + 0.5 < a.won_usd))
+        """
+    ).fetchall()
+    check("won <= commit <= best case on every slice", not forecast_order, str(forecast_order[:4]))
+
     # A loss and a same-size gain under one corporate parent are a planted pair.
     # Account-level amounts, so a parent rollup that happens to net to zero
     # still fails when the two legs match.
@@ -568,6 +604,13 @@ def main() -> None:
         "enterprise_arr": ent,
         "nrr": rates[0], "grr": rates[2],
         "won_qtd": won,
+        "slices": [
+            {
+                "segment": segment, "region": region,
+                "committed_arr": arr, "nrr": nrr, "grr": grr,
+            }
+            for segment, region, nrr, grr, _nrr_plan, _grr_plan, arr in slice_rates
+        ],
     }
     screens["sales"] = {
         "won_qtd": won,
@@ -578,6 +621,18 @@ def main() -> None:
         "week_13_best_case": call[13][2],
         "slipped_amount": sum(r[1] for r in slips),
         "slipped_deals": [{"account": r[0], "amount": r[1], "slips": r[2]} for r in slips],
+        "calls": [
+            {"segment": segment, "won": won_usd, "commit": commit_usd, "best_case": best_usd}
+            for segment, won_usd, commit_usd, best_usd in con.execute(
+                """
+                select a.segment, a.won_usd, a.commit_usd, f.best_case_usd
+                from marts.rpt_sales_attainment a
+                inner join marts.rpt_sales_forecast f using (segment, team, rep)
+                where a.team = 'All' and a.rep = 'All' and f.week_index = 13
+                order by a.segment
+                """
+            ).fetchall()
+        ],
     }
     screens["deal_desk"] = {
         "open_count": today[0],

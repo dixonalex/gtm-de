@@ -268,6 +268,84 @@ def _loss_schedule():
     return slots
 
 
+# Accounts that sit in the August trailing-12 cohort (loss month after Aug 2025).
+# Segment and country are chosen so each segment and region lands in the rate
+# band from its own churn, contraction, and expansion, without moving the
+# company total. Earlier loss months stay on their original books.
+_LOSS_PLACE = {
+    (7, "churn", 0): ("SMB", "GB"),
+    (7, "churn", 1): ("Public sector", "US"),
+    (7, "cut", 0): ("SMB", "GB"),
+    (7, "cut", 1): ("Mid-market", "GB"),
+    (7, "exp", 0): ("Startups", "JP"),
+    (7, "exp", 1): ("SMB", "GB"),
+    (8, "churn", 0): ("Enterprise", "US"),
+    (8, "churn", 1): ("Enterprise", "US"),
+    (8, "cut", 0): ("Enterprise", "US"),
+    (8, "cut", 1): ("Enterprise", "US"),
+    (8, "exp", 0): ("SMB", "US"),
+    (8, "exp", 1): ("Enterprise", "JP"),
+    (9, "churn", 0): ("Enterprise", "US"),
+    (9, "churn", 1): ("Enterprise", "US"),
+    (9, "cut", 0): ("Enterprise", "US"),
+    (9, "cut", 1): ("Enterprise", "US"),
+    (9, "exp", 0): ("Mid-market", "US"),
+    (9, "exp", 1): ("Mid-market", "US"),
+    (10, "churn", 0): ("Enterprise", "US"),
+    (10, "churn", 1): ("Enterprise", "US"),
+    (10, "cut", 0): ("Enterprise", "US"),
+    (10, "cut", 1): ("Enterprise", "GB"),
+    (10, "exp", 0): ("Enterprise", "US"),
+    (10, "exp", 1): ("Enterprise", "US"),
+    (11, "churn", 0): ("Enterprise", "US"),
+    (11, "churn", 1): ("Enterprise", "US"),
+    (11, "cut", 0): ("Enterprise", "US"),
+    (11, "cut", 1): ("Public sector", "US"),
+    (11, "exp", 0): ("Enterprise", "US"),
+    (11, "exp", 1): ("Enterprise", "US"),
+    (12, "churn", 0): ("Enterprise", "US"),
+    (12, "churn", 1): ("Enterprise", "US"),
+    (12, "cut", 0): ("Mid-market", "US"),
+    (12, "cut", 1): ("Mid-market", "US"),
+    (12, "exp", 0): ("Enterprise", "US"),
+    (12, "exp", 1): ("Enterprise", "US"),
+    (13, "churn", 0): ("Enterprise", "US"),
+    (13, "churn", 1): ("Enterprise", "US"),
+    (13, "cut", 0): ("Enterprise", "US"),
+    (13, "cut", 1): ("Enterprise", "US"),
+    (13, "exp", 0): ("Enterprise", "US"),
+    (13, "exp", 1): ("Enterprise", "US"),
+    (14, "churn", 0): ("Enterprise", "US"),
+    (14, "churn", 1): ("Enterprise", "US"),
+    (14, "cut", 0): ("Enterprise", "US"),
+    (14, "cut", 1): ("Enterprise", "US"),
+    (14, "exp", 0): ("Enterprise", "US"),
+    (14, "exp", 1): ("Enterprise", "US"),
+    (15, "churn", 0): ("Enterprise", "US"),
+    (15, "churn", 1): ("Enterprise", "US"),
+    (15, "cut", 0): ("Enterprise", "US"),
+    (15, "cut", 1): ("Enterprise", "GB"),
+    (15, "exp", 0): ("Enterprise", "US"),
+    (15, "exp", 1): ("Mid-market", "GB"),
+    (16, "churn", 0): ("Mid-market", "US"),
+    (16, "churn", 1): ("Enterprise", "US"),
+    (16, "cut", 0): ("Enterprise", "US"),
+    (16, "cut", 1): ("SMB", "GB"),
+    (16, "exp", 0): ("Public sector", "US"),
+    (16, "exp", 1): ("Enterprise", "US"),
+    (17, "churn", 0): ("Enterprise", "US"),
+    (17, "churn", 1): ("Enterprise", "US"),
+    (17, "cut", 0): ("Enterprise", "GB"),
+    (17, "cut", 1): ("Public sector", "JP"),
+    (17, "exp", 0): ("Enterprise", "US"),
+    (17, "exp", 1): ("Mid-market", "US"),
+}
+
+
+def _loss_place(index, kind, k):
+    return _LOSS_PLACE.get((index, kind, k))
+
+
 def _cover_early_usd(g) -> None:
     """USD rates for Feb–Jul 2024.
 
@@ -369,22 +447,28 @@ def plant_story(g) -> None:
         for k, amount in enumerate(churns):
             n = 700 if i == 0 and k == 0 else 1000 + i * 3 + k
             name = "Sable Cohort 1" if n == 700 else f"Hale Cohort {i + 1}.{k + 1}"
-            gone = acct(n, name, "Mid-market", owner=owners[(i + k) % len(owners)])
+            placed = _loss_place(i, "churn", k)
+            segment, country = placed or ("Mid-market", "US")
+            gone = acct(n, name, segment, country=country, owner=owners[(i + k) % len(owners)])
             recurring(gone, n, amount, opened, ended)
         for k, (before, after) in enumerate(contractions):
             n = 1100 + i * 5 + k
+            placed = _loss_place(i, "cut", k)
+            segment, country = placed or ("Enterprise" if k % 2 == 0 else "Mid-market", "US")
             held = acct(
                 n, f"Nereid Seat {i + 1}.{k + 1}",
-                "Enterprise" if k % 2 == 0 else "Mid-market",
+                segment, country=country,
                 owner=owners[(i + k + 3) % len(owners)],
             )
             recurring(held, n, before, opened, ended)
             recurring(held, 1200 + i * 5 + k, after, loss_start, term_end, order_type="Renewal")
         for k, amount in enumerate(expansions):
             n = 1300 + i * 5 + k
+            placed = _loss_place(i, "exp", k)
+            segment, country = placed or ("Enterprise" if k % 2 == 0 else "Mid-market", "US")
             kept = acct(
                 n, f"Orchard Uplift {i + 1}.{k + 1}",
-                "Enterprise" if k % 2 == 0 else "Mid-market",
+                segment, country=country,
                 owner=owners[(i + k + 1) % len(owners)],
             )
             recurring(kept, n, 1_000, opened, term_end)

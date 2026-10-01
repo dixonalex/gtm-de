@@ -54,8 +54,8 @@
 		legend: { show: false },
 		grid: showGap
 			? [
-					{ left: 56, right: 168, top: 48, height: "44%" },
-					{ left: 56, right: 168, top: "70%", height: "16%" },
+					{ left: 56, right: 168, top: 36, height: "40%" },
+					{ left: 56, right: 168, top: "64%", bottom: 28 },
 				]
 			: [{ left: 56, right: 168, top: 48, bottom: 28 }],
 		xAxis: (showGap ? [0, 1] : [0]).map((gridIndex) => ({
@@ -166,14 +166,15 @@
 							xAxisIndex: 1,
 							yAxisIndex: 1,
 							barMaxWidth: 18,
-							labelLayout: { hideOverlap: false },
+							labelLayout: { moveOverlap: "shiftY", hideOverlap: false },
 							data: gaps.map((gap, i) => ({
 								value: gap,
 								itemStyle: { color: gapOutside(gap, plan[i]) ? UNFAVORABLE : CONTEXT },
 								label: {
 									show: true,
-									position: gap < 0 ? "bottom" : "top",
-									distance: 4,
+									position: "top",
+									distance: 2,
+									rotate: 0,
 									formatter: () => money(gap, { signed: true }),
 									color: MUTED,
 									fontSize: 11,

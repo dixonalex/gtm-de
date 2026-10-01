@@ -118,7 +118,7 @@ export function valueAxisTicks(window, formatter, { labels = true } = {}) {
 		min: window.min,
 		max: window.max,
 		axisLine: { show: false },
-		axisTick: { show: false },
+		axisTick: { show: false, customValues: window.ticks },
 		axisLabel: {
 			show: labels,
 			customValues: window.ticks,
@@ -131,9 +131,6 @@ export function valueAxisTicks(window, formatter, { labels = true } = {}) {
 		minorSplitLine: { show: false },
 		splitLine: {
 			show: true,
-			customValues: window.ticks,
-			interval: (_index, value) =>
-				window.ticks.some((tick) => Math.abs(tick - Number(value)) <= Math.abs(tick) * 1e-6 + 1),
 			lineStyle: { color: RULE, width: 1 },
 		},
 	};

@@ -1,10 +1,38 @@
 <script>
+	import { browser } from "$app/environment";
 	import { EvidenceDefaultLayout } from "@evidence-dev/core-components";
 	import { showQueries } from "@evidence-dev/component-utilities/stores";
 	import { page } from "$app/stores";
 	import "./theme.css";
 
 	export let data;
+
+	const SLICE_KEYS = [
+		"period", "segment", "region", "quarter", "team", "rep",
+		"day", "owner", "type", "queue", "currency", "source", "model", "severity",
+	];
+	const SLICE_DEFAULTS = { period: "2026-08-31", quarter: "2026-Q3", day: "today" };
+
+	function packed(value) {
+		return { label: value, value, rawValues: [{ label: value, value, selected: true }] };
+	}
+
+	// The page query is built with whatever inputs exist at init, and Evidence
+	// keeps prerendered rows when they are present. Seed the URL first, and drop
+	// those rows when the URL is not the built slice, so the first client query runs.
+	if (browser && data?.inputs) {
+		const params = new URLSearchParams(window.location.search);
+		let seeded = false;
+		for (const key of SLICE_KEYS) {
+			const value = params.get(key);
+			if (!value) continue;
+			data.inputs[key] = packed(value);
+			if (value !== (SLICE_DEFAULTS[key] || "All")) seeded = true;
+		}
+		if (seeded && data.data) {
+			for (const key of Object.keys(data.data)) delete data.data[key];
+		}
+	}
 
 	showQueries.set(false);
 

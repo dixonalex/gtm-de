@@ -72,9 +72,10 @@ select
     coalesce(team, 'All') as team,
     coalesce(rep, 'All') as rep,
     sum(won_usd) as won_usd,
-    sum(commit_usd) as commit_usd,
+    -- The call includes what has already been won, and best case includes the call.
+    greatest(sum(commit_usd), sum(won_usd)) as commit_usd,
     sum(quota_usd) as quota_usd,
-    sum(commit_usd) / nullif(sum(quota_usd), 0) as commit_attainment,
+    greatest(sum(commit_usd), sum(won_usd)) / nullif(sum(quota_usd), 0) as commit_attainment,
     sum(won_usd) / nullif(sum(quota_usd), 0) as won_attainment
 from allocated
 group by grouping sets (
