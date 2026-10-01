@@ -59,6 +59,20 @@ order by connector
     <Column id=status title="Status"/>
 </DataTable>
 
+```sql row_freshness
+select object_name, max_loaded_at, age_hours, sla, status
+from gtm.row_arrival_freshness
+order by object_name
+```
+
+<DataTable data={row_freshness} rows=10>
+    <Column id=object_name title="Object"/>
+    <Column id=max_loaded_at title="Newest row"/>
+    <Column id=age_hours title="Age (hours)" fmt=num0/>
+    <Column id=sla title="SLA"/>
+    <Column id=status title="Status"/>
+</DataTable>
+
 ```sql arrival_lag
 select week_start, object_name, p95_lag_hours
 from gtm.arrival_lag_weekly

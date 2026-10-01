@@ -80,3 +80,25 @@ models:
         data_tests: [not_null]
       - name: p95_lag_hours
         data_tests: [not_null]
+
+  - name: dq_row_arrival_freshness
+    description: >
+      Newest _loaded_at for opportunity, opportunity history, invoice, and charge.
+      Age is hours from that timestamp to UTC now. Warn at 48 hours, error at 7 days.
+    columns:
+      - name: object_name
+        data_tests:
+          - unique
+          - not_null
+      - name: max_loaded_at
+        data_tests: [not_null]
+      - name: age_hours
+        data_tests: [not_null]
+      - name: sla
+        data_tests: [not_null]
+      - name: status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['PASS', 'WARN', 'ERROR']
