@@ -66,6 +66,11 @@ group by month_end
 union all
 select strftime(month_end, '%b %Y'), month_end, 'Support', sum(support_arr_usd)
 from gtm.arr_monthly
+where (
+    select sum(support_arr_usd) / nullif(sum(committed_arr_usd), 0)
+    from gtm.arr_monthly
+    where month_end = (select max(month_end) from gtm.arr_monthly)
+) >= 0.02
 group by month_end
 union all
 select strftime(month_end, '%b %Y'), month_end, 'Commit', sum(commit_arr_usd)
@@ -74,14 +79,25 @@ group by month_end
 order by month_end, product
 ```
 
+```sql support_note
+select printf('%.1f', 100.0 * sum(support_arr_usd) / nullif(sum(committed_arr_usd), 0)) || '%' as support_label
+from gtm.arr_monthly
+where month_end = (select max(month_end) from gtm.arr_monthly)
+having sum(support_arr_usd) / nullif(sum(committed_arr_usd), 0) < 0.02
+```
+
 ## Committed ARR · <Value data={arr_headline} column=month_label /> <Value data={arr_headline} column=verb /> <Value data={arr_headline} column=growth_pct fmt=pct0 /> over the last 3 months to <Value data={arr_headline} column=latest_arr fmt=usd1m />
+
+{#if support_note.length}
+<p style="color:#64748b;font-size:13px;margin:-8px 0 12px;">Support is {support_note[0].support_label} of committed ARR.</p>
+{/if}
 
 <BarChart
     data={arr_stack}
     x=month_label
     y=arr_usd
     series=product
-    seriesOrder={['Seats', 'Support', 'Commit']}
+    seriesOrder={['Seats', 'Commit', 'Support']}
     type=stacked
     yFmt=usd1m
     sort=false
