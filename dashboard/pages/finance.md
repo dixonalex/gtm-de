@@ -7,7 +7,7 @@ hide_title: true
 select distinct month_key as value, strftime(month_end, '%b %Y') as label
 from gtm.finance_month
 where segment = 'All' and currency = 'All'
-order by value
+order by value desc
 ```
 
 ```sql currencies_list

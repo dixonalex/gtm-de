@@ -296,6 +296,41 @@ h1.title {
 	overflow: auto;
 }
 
+[data-melt-popover-content] [data-cmdk-item] {
+	display: flex !important;
+	flex-direction: row;
+	align-items: center;
+	gap: 8px;
+	height: 32px;
+	margin: 0;
+	padding: 0 10px;
+	border-radius: 0;
+}
+
+[data-melt-popover-content] [data-cmdk-item] > div {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	margin: 0;
+	flex: 0 0 16px;
+}
+
+[data-melt-popover-content] [data-cmdk-item] span {
+	white-space: nowrap;
+	line-height: 1;
+}
+
+/* Inactive checks use a Tailwind color that is not in the build. */
+[data-melt-popover-content] [data-cmdk-item] svg.text-transparent {
+	visibility: hidden;
+}
+
+[data-melt-popover-content] [data-cmdk-item][aria-selected="true"] {
+	background: var(--color-wash);
+}
+
 .inert {
 	display: inline-flex;
 	gap: 0;
