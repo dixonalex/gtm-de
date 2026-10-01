@@ -75,7 +75,7 @@ select * from gtm.connector_freshness order by connector_id
 
 <SalesView {kpi} {segments} {forecast} {months} {slips} {freshness}>
   <div slot="controls">
-    <Dropdown name="quarter" title="Period" defaultValue="2026-Q3">
+    <Dropdown name="quarter" defaultValue="2026-Q3">
       <DropdownOption value="2026-Q3" valueLabel="Q3 FY26" />
     </Dropdown>
     <Dropdown name="segment" title="Segment" defaultValue="All">

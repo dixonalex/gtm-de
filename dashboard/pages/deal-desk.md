@@ -49,7 +49,7 @@ select * from gtm.connector_freshness order by connector_id
 
 <DealDeskView {kpi} openRows={open_rows} resolvedRows={resolved_rows} {freshness}>
   <div slot="controls">
-    <Dropdown name="day" title="Period" defaultValue="today">
+    <Dropdown name="day" defaultValue="today">
       <DropdownOption value="today" valueLabel="Wed 30 Sep" />
     </Dropdown>
     <Dropdown name="owner" title="Owner" data={owners} defaultValue="All" />

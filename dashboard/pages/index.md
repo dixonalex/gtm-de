@@ -67,7 +67,7 @@ select * from gtm.chart_events
 
 <ExecutiveView {kpi} {trend} {notes} {movers} {freshness} {events}>
   <div slot="controls">
-    <Dropdown name="period" title="Period" data={periods} defaultValue="2026-08-31" />
+    <Dropdown name="period" data={periods} label="label" defaultValue="2026-08-31" />
     <Dropdown name="segment" title="Segment" defaultValue="All">
       <DropdownOption value="All" valueLabel="All" />
       <DropdownOption value="Enterprise" valueLabel="Enterprise" />
