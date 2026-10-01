@@ -47,7 +47,15 @@ from gtm.test_results
 ## <Value data={dq_headline} column=warn_count fmt=num0 /> tests warn and <Value data={dq_headline} column=error_count fmt=num0 /> error
 
 ```sql freshness
-select connector, last_successful_sync, age_hours, status
+select
+    connector,
+    last_successful_sync,
+    age_hours,
+    case status
+        when 'PASS' then '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;background:#e7efe9;color:#3f6b4e;">PASS</span>'
+        when 'WARN' then '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;background:#f6f0e4;color:#8a5a12;">WARN</span>'
+        else '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;background:#f6e8e6;color:#8f3d3d;">ERROR</span>'
+    end as status
 from gtm.connector_freshness
 order by connector
 ```
@@ -56,7 +64,7 @@ order by connector
     <Column id=connector title="Connector"/>
     <Column id=last_successful_sync title="Last successful sync"/>
     <Column id=age_hours title="Age (hours)" fmt=num0/>
-    <Column id=status title="Status"/>
+    <Column id=status title="Status" contentType=html/>
 </DataTable>
 
 ```sql row_freshness
@@ -70,7 +78,11 @@ select
     max_loaded_at,
     age_hours,
     sla,
-    status
+    case status
+        when 'PASS' then '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;background:#e7efe9;color:#3f6b4e;">PASS</span>'
+        when 'WARN' then '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;background:#f6f0e4;color:#8a5a12;">WARN</span>'
+        else '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;background:#f6e8e6;color:#8f3d3d;">ERROR</span>'
+    end as status
 from gtm.row_arrival_freshness
 order by object_name
 ```
@@ -80,7 +92,7 @@ order by object_name
     <Column id=max_loaded_at title="Newest row"/>
     <Column id=age_hours title="Age (hours)" fmt=num0/>
     <Column id=sla title="SLA"/>
-    <Column id=status title="Status"/>
+    <Column id=status title="Status" contentType=html/>
 </DataTable>
 
 ```sql arrival_lag
@@ -122,7 +134,16 @@ order by week_start
 />
 
 ```sql tests
-select name, model, severity, status, failures
+select
+    name,
+    model,
+    severity,
+    case
+        when status = 'pass' then '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;background:#e7efe9;color:#3f6b4e;">PASS</span>'
+        when status = 'warn' then '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;background:#f6f0e4;color:#8a5a12;">WARN</span>'
+        else '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;background:#f6e8e6;color:#8f3d3d;">ERROR</span>'
+    end as status,
+    failures
 from gtm.test_results
 order by
     case status when 'fail' then 0 when 'error' then 1 when 'warn' then 2 else 3 end,
@@ -131,7 +152,7 @@ order by
 ```
 
 <DataTable data={tests} rows=20 search=true>
-    <Column id=status title="Status"/>
+    <Column id=status title="Status" contentType=html/>
     <Column id=severity title="Severity"/>
     <Column id=name title="Test"/>
     <Column id=model title="Model"/>
