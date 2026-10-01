@@ -454,6 +454,7 @@ class Gen:
             TotalAmount=money(sum(x["TotalPrice"] for x in items), cur), CurrencyIsoCode=cur,
             CreatedDate=created, LastModifiedDate=self.ts(start) if activated else created,
             SystemModstamp=self.ts(start) if activated else created, IsDeleted=False,
+            Cancelled_Date__c=None,
             _items=items, _acct=acct, _cancel=None, _reduction=None, _usage=[])
         self.rows("order").append(order)
         return order
@@ -470,6 +471,7 @@ class Gen:
             cdate = start + dt.timedelta(days=self.i(5, 40))
             if cdate <= self.last_event_day:
                 order.update(Status="Cancelled", StatusCode="Canceled", _cancel=cdate,
+                             Cancelled_Date__c=cdate,
                              LastModifiedDate=self.ts(cdate), SystemModstamp=self.ts(cdate))
                 return
         # reduction order (mid-term downsell on a seat line)

@@ -270,6 +270,12 @@ models:
           - accepted_values:
               arguments:
                 values: ['Draft', 'Activated', 'Cancelled']
+      - name: cancelled_date
+        description: Set from Order.Cancelled_Date__c. Present exactly when status is Cancelled.
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "(status = 'Cancelled') = (cancelled_date is not null)"
 
   - name: stg_salesforce__order_item
     description: Salesforce OrderItem, including negative quantities on reduction orders.

@@ -41,7 +41,7 @@ slots as (
       and cast(
             o.effective_date + (k.slot_index * p.period_months) * interval 1 month
             as date
-          ) <= least(o.end_date, current_date)
+          ) <= least(o.end_date, {{ as_of_date() }})
 ),
 
 reductions as (

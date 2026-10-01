@@ -33,7 +33,7 @@ expected as (
     inner join fx
         on fx.rate_date = s.slot_start
        and fx.currency_code = s.currency_iso_code
-    where s.slot_start <= current_date
+    where s.slot_start <= {{ as_of_date() }}
     group by s.order_id
 ),
 

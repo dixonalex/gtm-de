@@ -5,7 +5,7 @@ models:
     description: >
       One row per order item, plus an offsetting cancellation row. Booking date is the
       opportunity close date, or the order effective date when there is no opportunity.
-      Cancel date is the cancelled order's last modified date. USD is locked at the booking date.
+      Cancel date is Order.Cancelled_Date__c. USD is locked at the booking date.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:

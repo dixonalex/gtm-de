@@ -26,7 +26,7 @@ fx as (
     from {{ ref('int_fx__daily_rates') }}
 ),
 
--- Cancel has no column of its own. The generator stamps LastModifiedDate when Status becomes Cancelled.
+-- Cancel date is Order.Cancelled_Date__c, staged as cancelled_date.
 items as (
     select
         oi.order_item_id,
@@ -47,9 +47,7 @@ items as (
             when o.opportunity_id is not null then opp.close_date
             else o.effective_date
         end as booking_date,
-        case
-            when o.status = 'Cancelled' then cast(o.last_modified_date as date)
-        end as cancel_date,
+        o.cancelled_date as cancel_date,
         case
             when oi.end_date is not null then oi.quantity * oi.unit_price
             else 0

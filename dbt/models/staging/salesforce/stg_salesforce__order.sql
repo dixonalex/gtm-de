@@ -22,6 +22,7 @@ renamed as (
         cast("TotalAmount" as decimal(18, 4)) as total_amount,
         cast("CurrencyIsoCode" as varchar) as currency_iso_code,
         cast("CreatedDate" as timestamp) as created_date,
+        cast("Cancelled_Date__c" as date) as cancelled_date,
         cast("LastModifiedDate" as timestamp) as last_modified_date,
         cast("SystemModstamp" as timestamp) as system_modstamp,
         cast("_loaded_at" as timestamp) as _loaded_at

@@ -38,10 +38,10 @@ month_ends as (
     ) as month_end
     from generate_series(
         date_trunc('month', (select min(effective_date) from orders)),
-        date_trunc('month', current_date),
+        date_trunc('month', {{ as_of_date() }}),
         interval 1 month
     ) t(gs)
-    where cast(date_trunc('month', gs) + interval 1 month - interval 1 day as date) <= current_date
+    where cast(date_trunc('month', gs) + interval 1 month - interval 1 day as date) <= {{ as_of_date() }}
 ),
 
 -- USD is locked at booking date so a renewal does not revalue, and a same-stock renewal is not churn + new.
@@ -50,9 +50,7 @@ recurring_items as (
         a.master_account_id,
         o.effective_date,
         oi.end_date,
-        case
-            when o.status = 'Cancelled' then cast(o.last_modified_date as date)
-        end as cancel_date,
+        o.cancelled_date as cancel_date,
         p.product_code,
         case
             when o.opportunity_id is not null then opp.close_date
