@@ -6,61 +6,58 @@ theme:
   colorPalettes:
     default:
       light:
-        - "#334155"
-        - "#5b7c99"
-        - "#8d7b6a"
-        - "#94a3b8"
+        - "#1F3A5F"
+        - "#5B84AD"
+        - "#8FAECB"
+        - "#BFD0E1"
+        - "#5B646C"
       dark:
-        - "#334155"
-        - "#5b7c99"
-        - "#8d7b6a"
-        - "#94a3b8"
+        - "#1F3A5F"
+        - "#5B84AD"
+        - "#8FAECB"
+        - "#BFD0E1"
+        - "#5B646C"
   colorScales:
     default:
       light:
-        - "#e2e8f0"
-        - "#334155"
+        - "#E8EEF4"
+        - "#BFD0E1"
+        - "#8FAECB"
+        - "#5B84AD"
+        - "#1F3A5F"
       dark:
-        - "#e2e8f0"
-        - "#334155"
+        - "#E8EEF4"
+        - "#BFD0E1"
+        - "#8FAECB"
+        - "#5B84AD"
+        - "#1F3A5F"
   colors:
     primary:
-      light: "#334155"
-      dark: "#334155"
+      light: "#1F3A5F"
+      dark: "#1F3A5F"
     accent:
-      light: "#64748b"
-      dark: "#64748b"
+      light: "#5B646C"
+      dark: "#5B646C"
     base:
-      light: "#f4f4f5"
-      dark: "#f4f4f5"
+      light: "#F4F5F6"
+      dark: "#F4F5F6"
     info:
-      light: "#64748b"
-      dark: "#64748b"
-    # Muted status colors. Charts use the palette above, not these.
+      light: "#5B646C"
+      dark: "#5B646C"
     positive:
-      light: "#3f6b4e"
-      dark: "#3f6b4e"
+      light: "#2F7D5B"
+      dark: "#2F7D5B"
     warning:
-      light: "#8a5a12"
-      dark: "#8a5a12"
+      light: "#B7791F"
+      dark: "#B7791F"
     negative:
-      light: "#8f3d3d"
-      dark: "#8f3d3d"
+      light: "#B23A32"
+      dark: "#B23A32"
 
 plugins:
   components:
     "@evidence-dev/core-components": {}
 
   datasources:
-    "@evidence-dev/bigquery": { }
-    "@evidence-dev/csv": { }
-    "@evidence-dev/databricks": { }
     "@evidence-dev/duckdb": { }
-    "@evidence-dev/mssql": { }
-    "@evidence-dev/mysql": { }
-    "@evidence-dev/postgres": { }
     "@evidence-dev/source-javascript": { }
-    "@evidence-dev/snowflake": { }
-    "@evidence-dev/sqlite": { }
-    "@evidence-dev/trino": { }
-    "@evidence-dev/motherduck": { }

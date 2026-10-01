@@ -305,6 +305,33 @@ def main() -> None:
     check("NRR band", 1.02 <= rates[0] <= 1.06, f"{rates[0]:.4f}")
     check("GRR band", 0.88 <= rates[2] <= 0.92, f"{rates[2]:.4f}")
 
+    # A loss and a same-size gain under one corporate parent are a planted pair.
+    # Account-level amounts, so a parent rollup that happens to net to zero
+    # still fails when the two legs match.
+    paired = con.execute(
+        """
+        with moves as (
+            select
+                ultimate_parent_account_id as parent_id,
+                month_end,
+                master_account_id,
+                abs(arr_contraction_usd + arr_churn_usd) as loss,
+                arr_new_usd + arr_expansion_usd + arr_reactivation_usd as gain
+            from marts.fct_arr_monthly
+        )
+        select count(*)
+        from moves loss
+        inner join moves gain
+            on loss.parent_id = gain.parent_id
+           and loss.month_end = gain.month_end
+           and loss.master_account_id <> gain.master_account_id
+        where loss.loss >= 1
+          and gain.gain >= 1
+          and abs(loss.loss - gain.gain) < 1
+        """
+    ).fetchone()[0]
+    check("no paired loss and gain in one hierarchy", paired == 0, f"{paired} pairs")
+
     ar_rows = con.execute(
         """
         select month_end, current_usd, bucket_1_30_usd, bucket_31_90_usd, over_90_usd, ar_usd, dso_days

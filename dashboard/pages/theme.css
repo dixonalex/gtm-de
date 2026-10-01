@@ -1,0 +1,108 @@
+:root {
+	--color-ground: #ffffff;
+	--color-ink: #1b2126;
+	--color-ink-muted: #5b646c;
+	--color-context: #9aa1a8;
+	--color-rule: #d9dcdf;
+	--color-wash: #f4f5f6;
+	--color-focus: #1f3a5f;
+	--color-favorable: #2f7d5b;
+	--color-warning: #b7791f;
+	--color-unfavorable: #b23a32;
+	--color-seq-1: #e8eef4;
+	--color-seq-2: #bfd0e1;
+	--color-seq-3: #8faecb;
+	--color-seq-4: #5b84ad;
+	--color-seq-5: #1f3a5f;
+	--font-display: "Newsreader", "Source Serif 4", Georgia, serif;
+	--font-sans: "IBM Plex Sans", "Helvetica Neue", sans-serif;
+	--font-mono: "IBM Plex Mono", ui-monospace, monospace;
+	--font-condensed: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
+	--content: 1120px;
+	--nav-h: 56px;
+}
+
+html,
+body {
+	background: var(--color-ground);
+	color: var(--color-ink);
+}
+
+body,
+#evidence-main-article {
+	font-family: var(--font-sans);
+	font-variant-numeric: tabular-nums;
+	font-feature-settings: "tnum" 1;
+}
+
+/* Evidence's shell pads the article. The frame below owns the 1120 column. */
+.mx-auto.flex.justify-start {
+	padding-left: 0 !important;
+	padding-right: 0 !important;
+	max-width: none !important;
+}
+
+.gtm-nav {
+	height: var(--nav-h);
+	border-bottom: 1px solid var(--color-rule);
+	background: var(--color-ground);
+	position: sticky;
+	top: 0;
+	z-index: 20;
+}
+
+.gtm-nav-inner,
+.gtm-frame {
+	width: min(var(--content), calc(100% - 48px));
+	margin-inline: auto;
+}
+
+.gtm-nav-inner {
+	height: 100%;
+	display: flex;
+	align-items: center;
+	gap: 32px;
+}
+
+.gtm-wordmark {
+	font-family: var(--font-display);
+	font-size: 22px;
+	line-height: 1;
+	color: var(--color-ink);
+	text-decoration: none;
+	letter-spacing: -0.01em;
+}
+
+.gtm-tabs {
+	display: flex;
+	align-items: stretch;
+	height: 100%;
+	gap: 4px;
+}
+
+.gtm-tab {
+	display: flex;
+	align-items: center;
+	height: 100%;
+	padding: 0 12px;
+	color: var(--color-ink-muted);
+	text-decoration: none;
+	font-size: 14px;
+	font-weight: 500;
+	border-bottom: 2px solid transparent;
+	margin-bottom: -1px;
+}
+
+.gtm-tab[aria-current="page"] {
+	color: var(--color-ink);
+	border-bottom-color: var(--color-ink);
+}
+
+.gtm-frame {
+	padding-bottom: 64px;
+}
+
+.num {
+	font-variant-numeric: tabular-nums;
+	font-feature-settings: "tnum" 1;
+}

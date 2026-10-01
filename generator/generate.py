@@ -526,6 +526,9 @@ class Gen:
             if rdate <= self.last_event_day:
                 it = seat_items[0]
                 cut = max(1, int(it["Quantity"] * self.u(0.1, 0.4)))
+                # Random reductions stay under $40k. Larger cuts, sized to the
+                # account, are planted on the cohort so August's bridge and the
+                # billing draw stay put.
                 cut = min(cut, max(1, int(40_000 / max(it["UnitPrice"], 0.01))))
                 red = self.make_order(acct, None, [dict(
                     code=it["_code"], qty=-cut, list=it["ListPrice"], unit=it["UnitPrice"],

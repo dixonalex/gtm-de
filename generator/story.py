@@ -178,6 +178,63 @@ def _active_span(start, end=dt.date(2027, 7, 31)):
     return start, end
 
 
+def _loss_schedule():
+    """Sep 2025–Jul 2026 cohort losses.
+
+    Each month: a few full churns, several contractions at about 30% of that
+    account's ARR, and expansions on other accounts that sum to the same
+    dollars. Company stock is flat in the loss month. No loss amount equals
+    a gain amount, and each account is its own hierarchy.
+    """
+    slots = []
+    for i in range(11):
+        churns = [
+            64_000 + 4_000 * ((i + 1) % 5),
+            88_000 + 3_000 * (i % 4),
+            118_000 - 2_000 * (i % 6),
+        ]
+        cuts = [34_000, 41_000, 27_000, 46_000, 32_000]
+        cuts = [c + 500 * ((i + k) % 5 - 2) for k, c in enumerate(cuts)]
+        target = 450_000
+        cuts[-1] += target - (sum(churns) + sum(cuts))
+        contractions = []
+        for cut in cuts:
+            before = int(round(cut / 0.32 / 1000.0) * 1000)
+            if before - cut < 8_000:
+                before = cut + 8_000
+            contractions.append((before, before - cut))
+        losses = list(churns) + [before - after for before, after in contractions]
+        # Gains sit off the loss set. The last one absorbs the remainder so the
+        # month still nets to zero, then steps by $1k until it is unique.
+        expansions = [102_000 + 3_000 * (i % 4), 86_000, 129_000, 78_000]
+        last = target - sum(expansions)
+        steps = 0
+        while True:
+            banned = set(losses) | set(expansions)
+            if last > 0 and last not in banned and expansions[0] > 0 and expansions[0] not in (set(losses) | set(expansions[1:])):
+                break
+            last += 1_000
+            expansions[0] -= 1_000
+            steps += 1
+            if steps > 40:
+                raise AssertionError((i, losses, expansions, last))
+        expansions.append(last)
+        gains = list(expansions)
+        overlap = set(losses) & set(gains)
+        if (
+            overlap
+            or any(x <= 0 for x in losses + gains)
+            or any(a <= 0 for _, a in contractions)
+            or len(set(losses)) != len(losses)
+            or len(set(gains)) != len(gains)
+            or sum(gains) != target
+            or sum(losses) != target
+        ):
+            raise AssertionError((i, overlap, churns, contractions, expansions, sum(losses), sum(gains)))
+        slots.append((churns, contractions, expansions))
+    return slots
+
+
 def plant_story(g) -> None:
     if g.as_of != AS_OF:
         return
@@ -234,10 +291,10 @@ def plant_story(g) -> None:
         recurring(a, 190 + i, 100_000, prior_start, term_end)
         recurring(a, 290 + i, 160_000, aug, term_end, order_type="Add-On")
 
-    # Steadier contraction+churn on the Aug-2025 cohort, netted by expansion on a
-    # sibling account so the company ARR stock is unchanged in each loss month.
-    # August itself is left to the planted bridge.
-    loss = 450_000
+    # Cohort loss from Sep 2025 through Jul 2026, spread across many accounts.
+    # August is left to the planted bridge. Offsetting expansions sit on
+    # unrelated accounts (their own parent) and never match a loss dollar-for-dollar.
+    owners = list(OWNERS)
     loss_months = []
     yy, mm = 2025, 9
     while (yy, mm) <= (2026, 7):
@@ -247,11 +304,30 @@ def plant_story(g) -> None:
             yy, mm = yy + 1, 1
     for i, loss_start in enumerate(loss_months):
         ended = loss_start - DAY
-        gone = acct(700 + i, f"Sable Cohort {i + 1}", "Mid-market", owner="K. Adeyemi")
-        recurring(gone, 700 + i, loss, prior_start, ended)
-        kept = acct(720 + i, f"Sable Uplift {i + 1}", "Mid-market", owner="K. Adeyemi")
-        recurring(kept, 720 + i, 1_000, prior_start, term_end)
-        recurring(kept, 740 + i, loss, loss_start, term_end, order_type="Add-On")
+        churns, contractions, expansions = _loss_schedule()[i]
+        for k, amount in enumerate(churns):
+            n = 700 if i == 0 and k == 0 else 1000 + i * 3 + k
+            name = "Sable Cohort 1" if n == 700 else f"Hale Cohort {i + 1}.{k + 1}"
+            gone = acct(n, name, "Mid-market", owner=owners[(i + k) % len(owners)])
+            recurring(gone, n, amount, prior_start, ended)
+        for k, (before, after) in enumerate(contractions):
+            n = 1100 + i * 5 + k
+            held = acct(
+                n, f"Nereid Seat {i + 1}.{k + 1}",
+                "Enterprise" if k % 2 == 0 else "Mid-market",
+                owner=owners[(i + k + 3) % len(owners)],
+            )
+            recurring(held, n, before, prior_start, ended)
+            recurring(held, 1200 + i * 5 + k, after, loss_start, term_end, order_type="Renewal")
+        for k, amount in enumerate(expansions):
+            n = 1300 + i * 5 + k
+            kept = acct(
+                n, f"Orchard Uplift {i + 1}.{k + 1}",
+                "Enterprise" if k % 2 == 0 else "Mid-market",
+                owner=owners[(i + k + 1) % len(owners)],
+            )
+            recurring(kept, n, 1_000, prior_start, term_end)
+            recurring(kept, 1400 + i * 5 + k, amount, loss_start, term_end, order_type="Add-On")
 
     # Expansion on top of a base that stays in force.
     quarry = acct(121, "Quarry Health", "Enterprise", owner="A. Chen")
@@ -535,6 +611,9 @@ def plant_billing_defects(g) -> None:
     _manual_invoice(g, sable, 831, 3_600_000, dt.date(2026, 5, 1), order_id=anchor, paid_on=dt.date(2026, 6, 10))
     _manual_invoice(g, sable, 832, 1_000_000, dt.date(2026, 7, 1), order_id=anchor, paid_on=dt.date(2026, 8, 10))
     _manual_invoice(g, sable, 833, 750_000, dt.date(2026, 4, 2), order_id=anchor, paid_on=dt.date(2026, 5, 12))
+    # Open only in August, so DSO clears 45 days after the cohort was
+    # restated. Matched to an order so it does not add unmatched billings.
+    _manual_invoice(g, sable, 834, 480_000, dt.date(2026, 8, 20), order_id=anchor)
 
 
 def _manual_invoice(g, acct, n, amount, opened, order_id, uncollectible_on=None, paid_on=None):

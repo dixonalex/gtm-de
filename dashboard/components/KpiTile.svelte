@@ -1,0 +1,58 @@
+<script>
+	import { formatDelta, formatValue, verdict } from "./format.js";
+
+	export let label = "";
+	export let period = "";
+	export let value = null;
+	export let plan = null;
+	export let prior = null;
+	export let priorLabel = "prior period";
+	export let format = "money";
+	export let band = "balance";
+	export let higherIsBetter = true;
+
+	$: tone = verdict(value, plan, band, higherIsBetter);
+	$: vsPlan = formatDelta(value, plan, format);
+	$: vsPrior =
+		prior == null || prior === ""
+			? ""
+			: formatDelta(value, prior, format).replace("vs plan", `vs ${priorLabel}`);
+</script>
+
+<article class="tile">
+	<p class="label">{label}{period ? ` · ${period}` : ""}</p>
+	<p class="value num">{formatValue(value, format)}</p>
+	<p class="verdict num" style="color: {tone.color}">{vsPlan}</p>
+	<p class="context num">{vsPrior}</p>
+</article>
+
+<style>
+	.tile {
+		min-width: 0;
+	}
+	.label {
+		margin: 0 0 8px;
+		font-size: 13px;
+		color: var(--color-ink-muted);
+	}
+	.value {
+		margin: 0;
+		font-size: 36px;
+		line-height: 1.1;
+		font-weight: 500;
+		letter-spacing: -0.02em;
+		color: var(--color-ink);
+	}
+	.verdict {
+		margin: 8px 0 0;
+		font-size: 14px;
+		line-height: 1.3;
+	}
+	.context {
+		margin: 4px 0 0;
+		font-size: 13px;
+		line-height: 1.3;
+		color: var(--color-ink-muted);
+		min-height: 1.3em;
+	}
+</style>
