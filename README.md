@@ -74,3 +74,7 @@ Titles say what the chart measures. Status color uses a materiality band, not a 
 - Forecast ordering: Commit is floored at Won in `rpt_sales_attainment` (`greatest(commit, won)` on the attainment ratio). That is correct for display. The generator should produce consistent forecast categories so no floor is needed.
 - Evidence tradeoff: the default slice is prerendered, and other slices query DuckDB-WASM in the browser over parquet. `make page-check` covers both.
 - Not built: the drill drawer, break-down toggles (they are visible and do nothing), and top-mover interactions.
+
+---
+
+[MIT License](LICENSE)
