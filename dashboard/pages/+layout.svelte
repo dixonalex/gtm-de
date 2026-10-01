@@ -10,18 +10,10 @@
 
 	const tabs = [
 		{ label: "Executive", href: "/", test: (path) => path === "/" },
-		{
-			label: "Sales",
-			href: "/pipeline/",
-			test: (path) => path.startsWith("/pipeline") || path.startsWith("/bookings"),
-		},
-		{ label: "Deal Desk", href: null, test: () => false },
-		{ label: "Finance", href: "/arr/", test: (path) => path.startsWith("/arr") },
-		{
-			label: "Data health",
-			href: "/data-quality/",
-			test: (path) => path.startsWith("/data-quality"),
-		},
+		{ label: "Sales", href: "/sales/", test: (path) => path.startsWith("/sales") },
+		{ label: "Deal Desk", href: "/deal-desk/", test: (path) => path.startsWith("/deal-desk") },
+		{ label: "Finance", href: "/finance/", test: (path) => path.startsWith("/finance") },
+		{ label: "Data health", href: "/data-health/", test: (path) => path.startsWith("/data-health") },
 	];
 
 	$: path = ($page.url.pathname.replace(/\/$/, "") || "/");
@@ -51,13 +43,9 @@
 			<a class="gtm-wordmark" href="/">GTM Data</a>
 			<nav class="gtm-tabs" aria-label="Sections">
 				{#each tabs as tab}
-					{#if tab.href}
-						<a class="gtm-tab" href={tab.href} aria-current={tab.test(path) ? "page" : undefined}>
-							{tab.label}
-						</a>
-					{:else}
-						<span class="gtm-tab">{tab.label}</span>
-					{/if}
+					<a class="gtm-tab" href={tab.href} aria-current={tab.test(path) ? "page" : undefined}>
+						{tab.label}
+					</a>
 				{/each}
 			</nav>
 		</div>

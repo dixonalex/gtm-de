@@ -5,6 +5,11 @@
 	export let compares = [];
 	export let filters = [];
 	export let context = "";
+	export let onChange = null;
+
+	function emit(patch) {
+		if (onChange) onChange(patch);
+	}
 
 	let localFilters = [];
 	$: localFilters = filters.map((filter) => ({ ...filter }));
@@ -13,13 +18,14 @@
 		localFilters[index].active = false;
 		localFilters[index].value = "All";
 		localFilters = localFilters;
+		emit({ filter: localFilters[index].label, value: "All" });
 	}
 </script>
 
 <div class="bar">
 	<label class="period">
 		<span class="sr">Period</span>
-		<select bind:value={period}>
+		<select bind:value={period} on:change={() => emit({ period })}>
 			{#each periods as item}
 				<option value={item.value}>{item.label}</option>
 			{/each}
@@ -28,7 +34,7 @@
 	<span class="vs">vs</span>
 	<label class="compare">
 		<span class="sr">Compare</span>
-		<select bind:value={compare}>
+		<select bind:value={compare} on:change={() => emit({ compare })}>
 			{#each compares as item}
 				<option value={item.value}>{item.label}</option>
 			{/each}
@@ -43,10 +49,12 @@
 				on:change={() => {
 					filter.active = filter.value !== "All";
 					localFilters = localFilters;
+					emit({ filter: filter.label, value: filter.value });
 				}}
 			>
 				{#each filter.options as item}
-					<option value={item}>{item}</option>
+					{@const option = typeof item === "string" ? { value: item, label: item } : item}
+					<option value={option.value}>{option.label}</option>
 				{/each}
 			</select>
 			{#if filter.active}

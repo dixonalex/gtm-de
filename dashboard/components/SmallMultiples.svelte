@@ -5,6 +5,7 @@
 
 	export let panels = [];
 	export let height = 160;
+	export let format = money;
 
 	$: max = Math.max(1, ...panels.flatMap((panel) => panel.values || []));
 
@@ -48,7 +49,7 @@
 					lineStyle: { width: 1.5, color: FOCUS },
 					endLabel: {
 						show: last >= 0,
-						formatter: () => money(values[last]),
+						formatter: () => format(values[last]),
 						color: FOCUS,
 						fontSize: 11,
 						fontWeight: 500,

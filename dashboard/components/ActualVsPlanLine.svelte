@@ -10,6 +10,9 @@
 	export let band = "balance";
 	export let event = null;
 	export let height = 280;
+	export let actualName = "Actual";
+	export let planName = "Plan";
+	export let format = money;
 
 	const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -72,14 +75,14 @@
 		],
 		series: [
 			{
-				name: "Plan",
+				name: planName,
 				type: "line",
 				data: plan,
 				symbol: "none",
 				lineStyle: { type: "dashed", width: 1.5, color: CONTEXT },
 			},
 			{
-				name: "Actual",
+				name: actualName,
 				type: "line",
 				data: actual,
 				symbol: "circle",
@@ -122,8 +125,8 @@
 					const planTop = upper - 6 - lineH;
 					const actualTop = lower + 6 + lineH / 2;
 					const rows = [
-						{ text: `Plan ${money(plan[last])}`, y: planTop, fill: CONTEXT, weight: 400, size: 12 },
-						{ text: `Actual ${money(actual[last])}`, y: actualTop, fill: FOCUS, weight: 600, size: 13 },
+						{ text: `${planName} ${format(plan[last])}`, y: planTop, fill: CONTEXT, weight: 400, size: 12 },
+						{ text: `${actualName} ${format(actual[last])}`, y: actualTop, fill: FOCUS, weight: 600, size: 13 },
 						{
 							text: `${money(delta, { signed: true })} vs plan`,
 							y: actualTop + lineH,
@@ -181,7 +184,10 @@
 </script>
 
 <ChartCanvas {option} height={showGap ? height + 120 : height} />
-<p class="sr">Actual and plan. {#if showGap}Gap to plan underneath.{/if}</p>
+<p class="sr">
+	{actualName} {format(actual[actual.length - 1])}. {planName} {format(plan[plan.length - 1])}.
+	{#if showGap}Gap {money(actual[actual.length - 1] - plan[plan.length - 1], { signed: true })}.{/if}
+</p>
 
 <style>
 	.sr {

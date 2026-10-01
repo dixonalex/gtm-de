@@ -1,4 +1,5 @@
 <script>
+	import CaveatMarker from "./CaveatMarker.svelte";
 	import { formatDelta, formatValue, percent, sameYearLabel, verdict, verdictRate } from "./format.js";
 
 	export let label = "";
@@ -10,12 +11,17 @@
 	export let format = "money";
 	export let band = "balance";
 	export let higherIsBetter = true;
+	export let context = "";
+	export let compareLabel = "plan";
+	export let caveat = 0;
 
 	$: tone = format === "percent" ? verdictRate(value, plan, higherIsBetter) : verdict(value, plan, band, higherIsBetter);
 	$: vsPlan =
-		format === "money" && plan != null && plan !== ""
+		format === "money" && plan != null && plan !== "" && compareLabel === "plan"
 			? `${formatDelta(value, plan, format)} · ${percent(Number(value) / Number(plan))}`
 			: formatDelta(value, plan, format);
+	$: vsCompare = (plan == null || plan === "" ? vsPrior : vsPlan).replace("vs plan", `vs ${compareLabel}`);
+	$: contextLine = plan == null || plan === "" ? context : context || vsPrior;
 	$: vsPrior =
 		prior == null || prior === ""
 			? ""
@@ -23,10 +29,10 @@
 </script>
 
 <article class="tile">
-	<p class="label">{label}{period ? ` · ${period}` : ""}</p>
+	<p class="label">{label}{period ? ` · ${period}` : ""}{#if caveat}<CaveatMarker n={caveat} />{/if}</p>
 	<p class="value num">{formatValue(value, format)}</p>
-	<p class="verdict num" style="color: {tone.color}">{vsPlan}</p>
-	<p class="context num">{vsPrior}</p>
+	<p class="verdict num" style="color: {tone.color}">{vsCompare}</p>
+	<p class="context num">{contextLine}</p>
 </article>
 
 <style>

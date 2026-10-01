@@ -2,7 +2,7 @@ ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 export GTM_DATA_DIR := $(ROOT)/data
 
 # AS_OF unset is a live extract. make AS_OF=YYYY-MM-DD pins the generator.
-.PHONY: data build fresh all docs ui lab dash story-check
+.PHONY: data build fresh all docs ui lab dash story-check page-check
 
 data:
 ifdef AS_OF
@@ -24,6 +24,9 @@ build:
 
 story-check:
 	uv run python scripts/story_check.py
+
+page-check:
+	uv run python scripts/page_check.py
 
 fresh:
 ifdef AS_OF

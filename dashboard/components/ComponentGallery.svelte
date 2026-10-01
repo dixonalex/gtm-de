@@ -311,24 +311,24 @@
 	<ReviewQueue
 		rows={[
 			{
-				left: { name: "Meridian Analytics Inc", domain: "meridiananalyticsinc.example", country: "US", id: "001jlkEbX6YjxQqAKJ" },
-				right: { name: "Meridan Analytics", domain: "meridananalytics-other.example", country: "US", id: "0012kDrMM3pE2XpANK" },
+				left: { name: "Meridian Analytics Inc", domain: "meridiananalyticsinc.com", country: "US", id: "001jlkEbX6YjxQqAKJ" },
+				right: { name: "Meridan Analytics", domain: "meridananalytics.io", country: "US", id: "0012kDrMM3pE2XpANK" },
 				forSignals: "Similar name, same country",
 				againstSignals: "Different domain",
 				arr: 310000,
 				decision: "pending",
 			},
 			{
-				left: { name: "Brightwater Systems GmbH", domain: "brightwatersystemsgmbh.example", country: "DE", id: "001LjgQ7F06f3ioIKA" },
-				right: { name: "Brightwater Systems", domain: "brightwater-systems.example", country: "DE", id: "001ei93s4xNA4pnAAD" },
+				left: { name: "Brightwater Systems GmbH", domain: "brightwatersystemsgmbh.com", country: "DE", id: "001LjgQ7F06f3ioIKA" },
+				right: { name: "Brightwater Systems", domain: "brightwater-systems.io", country: "DE", id: "001ei93s4xNA4pnAAD" },
 				forSignals: "Same normalized name, same country",
 				againstSignals: "Different domain",
 				arr: 190000,
 				decision: "pending",
 			},
 			{
-				left: { name: "Halvorsen Group", domain: "halvorsengroup.example", country: "US", id: "0010k1LIC5z6sRbAOI" },
-				right: { name: "Halverson Group", domain: "halverson-group.example", country: "US", id: "001Gg5FOmvr6A7lIGE" },
+				left: { name: "Halvorsen Group", domain: "halvorsengroup.com", country: "US", id: "0010k1LIC5z6sRbAOI" },
+				right: { name: "Halverson Group", domain: "halverson-group.io", country: "US", id: "001Gg5FOmvr6A7lIGE" },
 				forSignals: "Similar name",
 				againstSignals: "Different domain",
 				arr: 186000,

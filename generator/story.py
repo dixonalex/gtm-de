@@ -80,6 +80,20 @@ def _slug(name: str) -> str:
     return "".join(ch for ch in name.lower() if ch.isalnum())
 
 
+def story_stripe_id(prefix: str, n: int) -> str:
+    """Stripe-shaped id. Deterministic, and it does not consume the generator RNG."""
+    alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    x = (n * 0x9E3779B1 + 0xC2B2AE35) & 0xFFFFFFFF
+    chars = []
+    for i in range(14):
+        x = (x * 1664525 + 1013904223 + i * 97) & 0xFFFFFFFF
+        chars.append(alphabet[x % 62])
+    token = "".join(chars)
+    if "story" in token.lower():
+        token = token.replace("s", "z").replace("S", "Z")
+    return prefix + token
+
+
 def _add_users(g) -> None:
     created = dt.datetime(2024, 6, 3, 9, 0)
     for name, n in OWNERS.items():
@@ -91,7 +105,7 @@ def _add_users(g) -> None:
 def _add_account(g, n, name, segment, country, currency, owner, employees=800):
     aid = story_sfid("001", n)
     created = dt.datetime(2024, 11, 4, 10, 0)
-    website = f"www.{_slug(name)}.example"
+    website = f"{_slug(name)}.com"
     g.accounts.append(dict(
         Id=aid, Name=name, base=name, Website=website, Industry="Technology",
         NumberOfEmployees=employees, segment=segment, region=region_for(country),
@@ -404,7 +418,7 @@ def plant_story(g) -> None:
     def unmatched(n, name, amount, age, owner):
         opened = _bd_before(AS_OF, age)
         a = acct(n, name, "Mid-market", owner=owner)
-        events.append(_event(a, story_sfid("801", n), "invoice_unmatched", opened, None, amount, owner, 5, age))
+        events.append(_event(a, story_stripe_id("in_", n), "invoice_unmatched", opened, None, amount, owner, 5, age))
         g._story_unmatched = getattr(g, "_story_unmatched", [])
         g._story_unmatched.append((a, n, amount, opened))
 
@@ -461,7 +475,7 @@ def plant_story(g) -> None:
                                   dt.date(2026, 9, 29), dt.date(2026, 9, 30), 200_000, "A. Chen", 3, 1.0))
     for i in range(9):
         events.append(_event_resolved(
-            f"Resolved Early {i}", story_sfid("006", 910 + i), "invoice_unmatched",
+            f"Resolved Early {i}", story_stripe_id("in_", 910 + i), "invoice_unmatched",
             dt.date(2026, 9, 24), dt.date(2026, 9, 25), 180_000, "J. Reyes", 5, 1.0))
     events.append(_event_resolved(
         "Resolved Median", story_sfid("006", 930), "amount_mismatch",
@@ -502,7 +516,7 @@ def plant_story(g) -> None:
     def pair(n, name_a, name_b, currency, country, arr_on_a):
         a = acct(n, name_a, "Enterprise", country, currency, "A. Chen", 1200)
         b = acct(n + 1, name_b, "Enterprise", country, currency, "A. Chen", 400)
-        b["Website"] = f"www.{_slug(name_b)}-other.example"
+        b["Website"] = f"{_slug(name_b)}.io"
         if arr_on_a:
             ln = _line(g, a, "SEAT-ENT", 1, arr_on_a, n) if currency == "USD" else _line(
                 g, a, "SEAT-ENT", arr_on_a, g.pbe[("SEAT-ENT", currency)][1], n)
@@ -517,7 +531,7 @@ def plant_story(g) -> None:
     # Brightwater: same normalized name, different domains, same currency.
     br_a = acct(403, "Brightwater Systems GmbH", "Enterprise", "DE", "EUR", "A. Chen", 900)
     br_b = acct(404, "Brightwater Systems", "Enterprise", "DE", "EUR", "A. Chen", 200)
-    br_b["Website"] = "www.brightwater-systems.example"
+    br_b["Website"] = "brightwater-systems.io"
     rate = g.fx( "EUR", dt.date(2026, 1, 15))
     eur_amount = money(190_000 * rate, "EUR")
     ln = _line(g, br_a, "SEAT-ENT", 1, eur_amount, 403)
@@ -526,7 +540,7 @@ def plant_story(g) -> None:
     g._story_pairs["pending"] = [(mer_a, mer_b), (br_a["Id"], br_b["Id"])]
     # Halvorsen Group is the unmatched-invoice account (n=202). The typo twin is separate.
     twin = acct(406, "Halverson Group", "Enterprise", "US", "USD", "J. Reyes", 300)
-    twin["Website"] = "www.halverson-group.example"
+    twin["Website"] = "halverson-group.io"
     g._story_pairs["reject"] = [(story_sfid("001", 202), twin["Id"])]
     g._story_pairs["pending_names"] = [
         ["Meridian Analytics Inc", "Meridan Analytics"],
@@ -633,17 +647,17 @@ def plant_billing_defects(g) -> None:
 
 def _manual_invoice(g, acct, n, amount, opened, order_id, uncollectible_on=None, paid_on=None):
     cur = acct["CurrencyIsoCode"]
-    cust = f"cus_story{n:010d}"
+    cust = story_stripe_id("cus_", n)
     if cust not in {c["id"] for c in g.rows("customer")}:
         g.rows("customer").append(dict(
             id=cust, name=acct["Name"], email=f"ap@{acct['Website'].replace('www.', '')}",
             currency=cur.lower(), metadata_salesforce_account_id=acct["Id"],
             created=_ts(opened, 7), delinquent=False, _updated=_ts(opened, 7)))
-    iid = f"in_story{n:010d}"
+    iid = story_stripe_id("in_", n)
     total = minor(amount, cur)
     created = _ts(opened, 8)
     g.rows("invoice").append(dict(
-        id=iid, customer_id=cust, number=f"STORY-{n:04d}", status="open",
+        id=iid, customer_id=cust, number=f"INV-{n:04d}", status="open",
         billing_reason="manual", collection_method="send_invoice", currency=cur.lower(),
         subtotal=total, total=total, amount_due=total, amount_paid=0, amount_remaining=total,
         created=created, period_start=opened, period_end=add_months(opened, 1) - DAY,
@@ -658,7 +672,7 @@ def _manual_invoice(g, acct, n, amount, opened, order_id, uncollectible_on=None,
             status="paid", amount_paid=paid["total"], amount_remaining=0,
             status_transitions_paid_at=_ts(paid_on, 16))
     g.rows("invoice_line_item").append(dict(
-        id=f"il_story{n:010d}", invoice_id=iid, type="invoiceitem", description="Story invoice",
+        id=story_stripe_id("il_", n), invoice_id=iid, type="invoiceitem", description="Manual invoice",
         quantity=1, unit_amount_decimal=round(amount * (1 if cur == "JPY" else 100), 4),
         amount=total, currency=cur.lower(), period_start=opened,
         period_end=add_months(opened, 1) - DAY, proration=False,

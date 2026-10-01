@@ -50,7 +50,15 @@ export function percent(value, digits = 0) {
 	const n = num(value);
 	if (n == null) return "";
 	const pct = Math.abs(n) <= 2 ? n * 100 : n;
-	const text = Math.abs(pct).toFixed(digits);
+	let use = digits;
+	if (digits === 0) {
+		const rounded = Math.round(pct);
+		const hidesZero = Math.abs(pct) > 1e-9 && rounded === 0;
+		const hidesHundred = Math.abs(pct - 100) > 1e-6 && rounded === 100;
+		const hidesSign = pct < 0 && rounded === 0;
+		if (hidesZero || hidesHundred || hidesSign) use = 1;
+	}
+	const text = Math.abs(pct).toFixed(use);
 	if (Number(text) === 0) return "0%";
 	return `${pct < 0 ? MINUS : ""}${text}%`;
 }

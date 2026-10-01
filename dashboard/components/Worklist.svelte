@@ -1,4 +1,5 @@
 <script>
+	import CaveatMarker from "./CaveatMarker.svelte";
 	import { money } from "./format.js";
 
 	export let rows = [];
@@ -41,7 +42,7 @@
 			{@const geo = geometry(row.age, row.sla)}
 			<tr>
 				<td>
-					<div class="name">{row.name}</div>
+					<div class="name">{row.name}{#if row.caveat}<CaveatMarker n={row.caveat} />{/if}</div>
 					<div class="id">{row.id}</div>
 				</td>
 				<td class="exception">{row.description}</td>
@@ -51,7 +52,7 @@
 							<div class="fill {kind}" style="width: {geo.fill}px"></div>
 							<div class="tick" style="left: {geo.tick}px"></div>
 						</div>
-						<span class="age-text {kind} num">{ageText(row.age)} / {Math.round(row.sla)}d</span>
+						<span class="age-text {kind} num">{row.ageLabel || `${ageText(row.age)} / ${Math.round(row.sla)}d`}</span>
 					</div>
 				</td>
 				<td class="right num">{money(row.amount)}</td>

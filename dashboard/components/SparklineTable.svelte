@@ -53,7 +53,7 @@
 						/>
 					</svg>
 				</td>
-				<td class="num latest">{row.display || money(row.values[row.values.length - 1])}</td>
+				<td class="num latest" class:bad={row.verdict === "bad"}>{row.display || money(row.values[row.values.length - 1])}</td>
 			</tr>
 		{/each}
 	</tbody>
@@ -97,6 +97,9 @@
 	.latest {
 		text-align: right;
 		font-variant-numeric: tabular-nums;
+	}
+	.latest.bad {
+		color: var(--color-unfavorable);
 	}
 	th.num {
 		text-align: right;

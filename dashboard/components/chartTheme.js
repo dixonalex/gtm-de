@@ -127,9 +127,13 @@ export function valueAxisTicks(window, formatter, { labels = true } = {}) {
 			fontSize: 12,
 			formatter,
 		},
+		minorTick: { show: false },
+		minorSplitLine: { show: false },
 		splitLine: {
 			show: true,
 			customValues: window.ticks,
+			interval: (_index, value) =>
+				window.ticks.some((tick) => Math.abs(tick - Number(value)) <= Math.abs(tick) * 1e-6 + 1),
 			lineStyle: { color: RULE, width: 1 },
 		},
 	};

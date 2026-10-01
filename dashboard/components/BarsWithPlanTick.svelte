@@ -1,7 +1,7 @@
 <script>
 	import ChartCanvas from "./ChartCanvas.svelte";
 	import { money, percent, verdict } from "./format.js";
-	import { FAVORABLE, FOCUS, INK, MUTED, UNFAVORABLE, axis, axisWindow, text, valueAxisTicks } from "./chartTheme.js";
+	import { FAVORABLE, FOCUS, INK, MUTED, UNFAVORABLE, axis, axisWindow, text } from "./chartTheme.js";
 
 	export let rows = [];
 	export let band = "flow";
@@ -15,7 +15,17 @@
 		textStyle: text,
 		legend: { show: false },
 		grid: { left: 8, right: 228, top: 8, bottom: 8, containLabel: true },
-		xAxis: valueAxisTicks(scale, () => "", { labels: false }),
+		xAxis: {
+			type: "value",
+			min: 0,
+			max: scale.max,
+			axisLine: { show: false },
+			axisTick: { show: false },
+			axisLabel: { show: false },
+			splitLine: { show: false },
+			minorSplitLine: { show: false },
+			minorTick: { show: false },
+		},
 		yAxis: {
 			type: "category",
 			data: rows.map((row) => row.label),

@@ -5,6 +5,18 @@
 
 	export let steps = [];
 	export let zeroBased = false;
+	export let wrapAxis = false;
+
+	const WRAPPED = {
+		Expansion: "Expan-\nsion",
+		Contraction: "Contr-\naction",
+		Reactivation: "Reactiv-\nation",
+	};
+
+	function tick(label) {
+		if (!wrapAxis) return label;
+		return WRAPPED[label] || label;
+	}
 	export let height = 320;
 
 	const BAR_W = 36;
@@ -103,13 +115,14 @@
 		grid: { left: 8, right: 16, top: 28, bottom: 8, containLabel: true },
 		xAxis: {
 			type: "category",
-			data: steps.map((step) => step.label),
+			data: steps.map((step) => tick(step.label)),
 			...axis,
 			axisLabel: {
 				...axis.axisLabel,
 				interval: 0,
+				lineHeight: 14,
 				color: (value) => {
-					const step = steps.find((item) => item.label === value);
+					const step = steps.find((item) => tick(item.label) === value);
 					return step && step.role === "close" ? FOCUS : MUTED;
 				},
 			},
@@ -201,7 +214,7 @@
 				symbolSize: [28, 2],
 				itemStyle: { color: CONTEXT },
 				data: built.zeros.map(({ step, total }) => ({
-					value: [step.label, total],
+					value: [tick(step.label), total],
 					label: {
 						show: true,
 						formatter: "0.0",
@@ -220,3 +233,8 @@
 </script>
 
 <ChartCanvas {option} {height} />
+<p class="sr">
+	{#each steps as step}
+		{step.label} {money(step.value, { signed: step.role === "up" || step.role === "down" })}.
+	{/each}
+</p>
