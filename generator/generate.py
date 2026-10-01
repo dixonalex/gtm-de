@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import calendar
 import datetime as dt
+import re
 import string
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -91,6 +92,28 @@ def sf_suffix(id15: str) -> str:
         chunk = id15[i * 5:(i + 1) * 5]
         out += alphabet[sum(1 << j for j, c in enumerate(chunk) if c.isupper())]
     return out
+
+
+def _name_key(name: str) -> str:
+    """Same normalization as int_accounts__deduped. Used only to construct cases."""
+    s = re.sub(r"\s*\([^)]*\)", "", name.lower())
+    s = re.sub(r"[^a-z0-9]+", " ", s.replace(".", "")).strip()
+    s = re.sub(r"(\s+(incorporated|holdings|group|corp|gmbh|llc|ltd|inc|kk|co))+$", "", s)
+    return s.strip()
+
+
+def _domain_key(website: str | None) -> str | None:
+    if not website:
+        return None
+    host = re.sub(r"^www\.", "", re.sub(r"^https?://", "", website.lower())).split("/", 1)[0]
+    return host or None
+
+
+def _drop_first_vowel(name: str) -> str:
+    for i, ch in enumerate(name):
+        if ch.lower() in "aeiou":
+            return name[:i] + name[i + 1:]
+    return name + "x"
 
 
 def b62(n: int, width: int) -> str:
@@ -242,7 +265,8 @@ class Gen:
                      NumberOfEmployees=emp, segment=seg, BillingCountry=country,
                      BillingState=str(self.rng.choice(US_STATES)) if country == "US" else None,
                      CurrencyIsoCode=cur, OwnerId=str(self.rng.choice(self.reps)), CreatedDate=created,
-                     dup=None, canonical=None, last_touch=created, won_any=False, active_contracts=0)
+                     dup=None, canonical=None, last_touch=created, won_any=False, active_contracts=0,
+                     case_type="canonical", ParentId=None)
             a["canonical"] = a["Id"]
             self.accounts.append(a)
 
@@ -254,7 +278,7 @@ class Gen:
                     f"{a['base']} ({a['BillingCountry']})"])
                 d = dict(a, Id=self.sfid("001"), Name=str(variant), OwnerId=str(self.rng.choice(self.reps)),
                          Website=self.rng.choice([a["Website"], a["Website"].replace("www.", "https://"), None]),
-                         BillingState=None, dup=None, canonical=a["Id"],
+                         BillingState=None, dup=None, canonical=a["Id"], case_type="original", ParentId=None,
                          CreatedDate=min(a["CreatedDate"] + dt.timedelta(days=self.i(20, 300)),
                                          self.ts(self.last_event_day - dt.timedelta(days=30))),
                          NumberOfEmployees=None if self.p(0.5) else a["NumberOfEmployees"])
@@ -759,7 +783,8 @@ class Gen:
                 Id=a["Id"], Name=a["Name"], Type=a["Type"], Industry=a["Industry"], Website=a["Website"],
                 NumberOfEmployees=a["NumberOfEmployees"], BillingCountry=a["BillingCountry"],
                 BillingState=a["BillingState"], CurrencyIsoCode=a["CurrencyIsoCode"], OwnerId=a["OwnerId"],
-                CreatedDate=t, LastModifiedDate=t, SystemModstamp=t, IsDeleted=False))
+                CreatedDate=t, LastModifiedDate=t, SystemModstamp=t, IsDeleted=False,
+                ParentId=a.get("ParentId")))
 
     def assign_loaded_at(self):
         late = self.cfg["mess"]["late_arriving"]
@@ -844,6 +869,157 @@ class Gen:
             o["SystemModstamp"] = bumped
             o["_same_day_touch"] = True
 
+    # ------------------------------------------------------------ hard dedup cases
+    # Drawn only after assign_loaded_at, so every earlier rng call stays put.
+    # New account rows are appended. About five subsidiaries also get one
+    # Closed Won opportunity and order, appended to those tables.
+    def add_hard_dedup_cases(self):
+        eligible = [a for a in self.accounts
+                    if a["canonical"] == a["Id"]
+                    and a["CreatedDate"].date() <= self.last_event_day - dt.timedelta(days=90)]
+        assert len(eligible) >= 60, "not enough aged canonical accounts for hard dedup cases"
+        picked = [eligible[int(i)] for i in self.rng.permutation(len(eligible))[:60]]
+        collisions = [self._collision_account(parent) for parent in picked[0:15]]
+        subsidiaries = [self._subsidiary_account(parent, i) for i, parent in enumerate(picked[15:30])]
+        typos = [self._typo_account(parent, i) for i, parent in enumerate(picked[30:45])]
+        suffixes = [self._suffix_url_account(parent, i) for i, parent in enumerate(picked[45:60])]
+        del collisions, typos, suffixes
+        for idx in self.rng.choice(len(subsidiaries), size=5, replace=False):
+            self._book_subsidiary(subsidiaries[int(idx)])
+
+    def _later_than(self, created: dt.datetime) -> dt.datetime:
+        nxt = created + dt.timedelta(days=self.i(21, 240))
+        cap = dt.datetime.combine(self.last_event_day, dt.time(17))
+        if nxt > cap:
+            nxt = created + dt.timedelta(days=1, hours=2)
+        if nxt <= created:
+            nxt = created + dt.timedelta(hours=2)
+        return min(nxt, cap)
+
+    def _spawn_account(self, parent, *, name, website, country, currency, canonical, case_type,
+                       parent_id, billing_state=None):
+        created = self._later_than(parent["CreatedDate"])
+        owner = str(self.rng.choice(self.reps))
+        a = dict(
+            Id=self.sfid("001"), Name=name, base=parent["base"], Website=website,
+            Industry=parent["Industry"], NumberOfEmployees=None, segment=parent["segment"],
+            BillingCountry=country, BillingState=billing_state, CurrencyIsoCode=currency,
+            OwnerId=owner, CreatedDate=created, dup=None, canonical=canonical,
+            last_touch=created, won_any=False, active_contracts=0, case_type=case_type,
+            ParentId=parent_id, Type="Prospect")
+        if canonical is None:
+            a["canonical"] = a["Id"]
+        self.accounts.append(a)
+        self._append_account_row(a)
+        return a
+
+    def _append_account_row(self, a):
+        t = a["CreatedDate"]
+        row = dict(
+            Id=a["Id"], Name=a["Name"], Type=a["Type"], Industry=a["Industry"], Website=a["Website"],
+            NumberOfEmployees=a["NumberOfEmployees"], BillingCountry=a["BillingCountry"],
+            BillingState=a["BillingState"], CurrencyIsoCode=a["CurrencyIsoCode"], OwnerId=a["OwnerId"],
+            CreatedDate=t, LastModifiedDate=t, SystemModstamp=t, IsDeleted=False, ParentId=a.get("ParentId"))
+        row["_loaded_at"] = self.snap_to_sync(self.sf_sync, t)
+        self.rows("account").append(row)
+
+    def _collision_account(self, parent):
+        places = [(c, cur) for cur, spec in self.curs.items() for c in spec["countries"] if c != parent["BillingCountry"]]
+        country, currency = places[self.i(0, len(places) - 1)]
+        state = str(self.rng.choice(US_STATES)) if country == "US" else None
+        suffix = {"DE": "GmbH", "JP": "K.K.", "GB": "Ltd.", "IE": "Ltd."}.get(country, "Inc.")
+        if parent["Name"].endswith(suffix):
+            suffix = "LLC" if suffix != "LLC" else "Corp."
+        name = f"{parent['base']} {suffix}".strip()
+        slug = "".join(ch for ch in parent["base"].lower() if ch.isalnum())
+        website = f"www.{slug}global.com"
+        assert _name_key(name) == _name_key(parent["Name"]), (name, parent["Name"])
+        assert _domain_key(website) != _domain_key(parent["Website"])
+        return self._spawn_account(
+            parent, name=name, website=website, country=country, currency=currency,
+            canonical=None, case_type="collision", parent_id=None, billing_state=state)
+
+    def _subsidiary_account(self, parent, i: int):
+        if i % 2 == 0:
+            name, country, currency = f"{parent['base']} Europe GmbH", "DE", "EUR"
+        else:
+            name, country, currency = f"{parent['base']} Japan K.K.", "JP", "JPY"
+        assert _domain_key(parent["Website"])
+        assert _name_key(name) != _name_key(parent["Name"])
+        return self._spawn_account(
+            parent, name=name, website=parent["Website"], country=country, currency=currency,
+            canonical=None, case_type="subsidiary", parent_id=parent["Id"])
+
+    def _typo_account(self, parent, i: int):
+        name = _drop_first_vowel(parent["base"]) if i % 2 == 0 else f"{parent['base']} Intl"
+        assert _name_key(name) and _name_key(name) != _name_key(parent["Name"])
+        return self._spawn_account(
+            parent, name=name, website=None, country=parent["BillingCountry"],
+            currency=parent["CurrencyIsoCode"], canonical=parent["Id"], case_type="typo",
+            parent_id=None, billing_state=parent["BillingState"])
+
+    def _suffix_url_account(self, parent, i: int):
+        suffix = next(s for s in ("Inc.", "LLC", "Ltd.", "GmbH", "Corp.", "Holdings")
+                      if not parent["Name"].endswith(s))
+        domain = _domain_key(parent["Website"])
+        website = f"https://{domain}/contact" if i % 2 == 0 else f"https://{domain}/"
+        assert _domain_key(website) == domain
+        return self._spawn_account(
+            parent, name=f"{parent['base']} {suffix}".strip(), website=website,
+            country=parent["BillingCountry"], currency=parent["CurrencyIsoCode"],
+            canonical=parent["Id"], case_type="suffix_url", parent_id=None,
+            billing_state=parent["BillingState"])
+
+    def _book_subsidiary(self, acct):
+        """One active Closed Won contract on the subsidiary, not the parent."""
+        created_date = acct["CreatedDate"].date()
+        window_end = self.last_event_day - dt.timedelta(days=30)
+        window_start = max(created_date + dt.timedelta(days=1), self.last_event_day - dt.timedelta(days=300))
+        if window_start > window_end:
+            window_start = window_end
+        start = window_start + dt.timedelta(days=self.i(0, max((window_end - window_start).days, 0)))
+        cur = acct["CurrencyIsoCode"]
+        code = "SEAT-TEAM"
+        eid, list_price = self.pbe[(code, cur)]
+        qty, disc = self.i(10, 40), self.i(0, 10)
+        unit = round(list_price * (1 - disc / 100), dp(cur))
+        lines = [dict(code=code, qty=qty, disc=disc, list=list_price, unit=unit, pbe=eid,
+                      total=money(qty * unit, cur))]
+        created_ts = self.ts(max(created_date, start - dt.timedelta(days=20)))
+        close_ts = self.ts(start)
+        oid = self.sfid("006")
+        amount = lines[0]["total"]
+        self.rows("opportunity_history").append(dict(
+            Id=self.sfid("008"), OpportunityId=oid, StageName="Closed Won", Amount=amount,
+            ExpectedRevenue=amount, CloseDate=start, Probability=100, ForecastCategory="Closed",
+            CreatedById=acct["OwnerId"], CreatedDate=close_ts, SystemModstamp=close_ts, IsDeleted=False,
+            _loaded_at=self.snap_to_sync(self.sf_sync, close_ts)))
+        self.rows("opportunity_line_item").append(dict(
+            Id=self.sfid("00k"), OpportunityId=oid, PricebookEntryId=eid,
+            Product2Id=self.products[code]["Id"], ProductCode=code, Quantity=qty,
+            ListPrice=list_price, UnitPrice=unit, Discount=disc, TotalPrice=amount,
+            ServiceDate=None, CurrencyIsoCode=cur, CreatedDate=created_ts, SystemModstamp=close_ts,
+            IsDeleted=False, _loaded_at=self.snap_to_sync(self.sf_sync, close_ts)))
+        opp = dict(
+            Id=oid, AccountId=acct["Id"], Name=f"{acct['Name']} - New Business", Type="New Business",
+            StageName="Closed Won", Probability=100, ForecastCategoryName="Closed", Amount=amount,
+            CloseDate=start, IsClosed=True, IsWon=True, LeadSource="Partner", OwnerId=acct["OwnerId"],
+            CurrencyIsoCode=cur, Pricebook2Id=self.pricebook_id, SyncedQuoteId=None,
+            HasOpportunityLineItem=True, CreatedDate=created_ts, LastModifiedDate=close_ts,
+            SystemModstamp=close_ts, IsDeleted=False,
+            _loaded_at=self.snap_to_sync(self.sf_sync, close_ts))
+        self.rows("opportunity").append(opp)
+        order = self.make_order(acct, opp, lines, start, "New", "Annual")
+        order["_loaded_at"] = self.snap_to_sync(self.sf_sync, order["SystemModstamp"])
+        for it in order["_items"]:
+            it["_loaded_at"] = self.snap_to_sync(self.sf_sync, it["SystemModstamp"])
+            self.rows("order_item").append(it)
+        acct["Type"] = "Customer"
+        acct["won_any"] = True
+        for row in self.rows("account"):
+            if row["Id"] == acct["Id"]:
+                row["Type"] = "Customer"
+
     def write(self, out: Path):
         systems = {"salesforce": ["user", "dated_conversion_rate", "product2", "pricebook2", "pricebook_entry",
                                   "account", "opportunity", "opportunity_history", "opportunity_line_item",
@@ -867,8 +1043,9 @@ class Gen:
         """Evaluation keys. No randomness; private fields only, so raw CSVs stay unchanged."""
         truth.mkdir(parents=True, exist_ok=True)
         accounts = pd.DataFrame(
-            [{"account_id": a["Id"], "true_master_account_id": a["canonical"]} for a in self.accounts],
-            columns=["account_id", "true_master_account_id"],
+            [{"account_id": a["Id"], "true_master_account_id": a["canonical"], "case_type": a["case_type"]}
+             for a in self.accounts],
+            columns=["account_id", "true_master_account_id", "case_type"],
         )
         invoices = pd.DataFrame(
             [{"invoice_id": r["id"], "true_order_id": r.get("_true_order_id")} for r in self.rows("invoice")],
@@ -898,6 +1075,7 @@ def main():
     g.build_billing()
     g.finalize_accounts()
     g.assign_loaded_at()
+    g.add_hard_dedup_cases()
     summary = g.write(Path(args.out))
     print(f"as_of={as_of} now={now:%Y-%m-%d %H:%M} salesforce_sync={g.sf_sync:%Y-%m-%d %H:%M} "
           f"billing_sync={g.billing_sync:%Y-%m-%d %H:%M}")

@@ -64,8 +64,36 @@ models:
                 to: ref('stg_salesforce__quote')
                 field: quote_id
 
+  - name: int_orders__billing_schedule
+    description: >
+      One expected invoice slot per order. Slot starts are EffectiveDate plus k billing periods,
+      through the earlier of EndDate and today. Recurring amounts are reduction-adjusted;
+      one-time items land on slot 0 only.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - order_id
+              - slot_start
+    columns:
+      - name: order_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__order')
+                field: order_id
+      - name: slot_start
+        data_tests: [not_null]
+      - name: expected_amount
+        data_tests: [not_null]
+      - name: master_account_id
+        data_tests: [not_null]
+
   - name: int_invoices__to_order
-    description: Every invoice with the order it was linked to. Fuzzy matches are 1:1 on the order's first-invoice slot.
+    description: >
+      Every invoice linked to an order. Metadata wins. Otherwise a 1:1 match to a billing-schedule
+      slot, an API-COMMIT overage term, or a reduction-order credit.
     columns:
       - name: invoice_id
         data_tests:
@@ -82,10 +110,10 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ['metadata', 'fuzzy', 'unmatched']
+                values: ['metadata', 'fuzzy_schedule', 'fuzzy_overage', 'fuzzy_credit', 'unmatched']
 
   - name: int_invoices__unmatched
-    description: Invoices with no metadata order and no fuzzy first-invoice match.
+    description: Invoices with no metadata order and no schedule, overage, or credit match.
     columns:
       - name: invoice_id
         data_tests:

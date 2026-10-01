@@ -14,6 +14,7 @@ renamed as (
         cast(nullif("BillingState", '') as varchar) as billing_state,
         cast("CurrencyIsoCode" as varchar) as currency_iso_code,
         cast("OwnerId" as varchar) as owner_id,
+        cast(nullif("ParentId", '') as varchar) as parent_id,
         cast("CreatedDate" as timestamp) as created_date,
         cast("LastModifiedDate" as timestamp) as last_modified_date,
         cast("SystemModstamp" as timestamp) as system_modstamp,

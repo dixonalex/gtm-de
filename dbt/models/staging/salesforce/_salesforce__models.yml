@@ -57,6 +57,13 @@ models:
               arguments:
                 to: ref('stg_salesforce__user')
                 field: user_id
+      - name: parent_id
+        description: Parent account for a subsidiary. Null on accounts that are not subsidiaries.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__account')
+                field: account_id
 
   - name: stg_salesforce__opportunity
     description: Salesforce Opportunity with soft-deleted rows removed.
