@@ -134,7 +134,11 @@ class Gen:
     t: dict = field(default_factory=lambda: {})  # table name -> list[dict]
 
     def __post_init__(self):
-        self.rng = np.random.default_rng(self.cfg["seed"])
+        # Identity never consumes the date-dependent stream, so names and ids
+        # stay put when as_of changes. Simulation keeps the other child.
+        identity_seed, sim_seed = np.random.SeedSequence(self.cfg["seed"]).spawn(2)
+        self.identity = np.random.default_rng(identity_seed)
+        self.rng = np.random.default_rng(sim_seed)
         self.start = add_months(self.as_of, -self.cfg["history_months"])
         self.last_event_day = self.as_of - DAY          # business events end yesterday
         mess = self.cfg["mess"]
@@ -193,6 +197,10 @@ class Gen:
                 IsActive=k < self.cfg["volumes"]["sales_reps"] - 3,
                 CreatedDate=ts, SystemModstamp=ts))
 
+        # Product and price book ids are assigned before the FX walk. The walk
+        # grows with as_of, and these ids must not.
+        self._build_products()
+
         # DatedConversionRate: monthly corporate rates (units per USD)
         self.fx_table = {}
         m = month_start(add_months(self.start, -1))
@@ -211,6 +219,7 @@ class Gen:
                     NextStartDate=nxt, CreatedDate=ts, SystemModstamp=ts))
             m = nxt
 
+    def _build_products(self):
         # Product2, Pricebook2, PricebookEntry (one entry per product x currency x pricebook)
         created = self.ts(self.start - dt.timedelta(days=200))
         std, com = self.sfid("01s"), self.sfid("01s")
@@ -251,20 +260,20 @@ class Gen:
         pool += sorted({f"{a} & {b}" for a in NAME_A for b in NAME_A if a < b})
         assert len(pool) >= n, "not enough unique company names for configured volume"
         self.accounts = []
-        for base in self.rng.permutation(pool)[:n]:
+        for base in self.identity.permutation(pool)[:n]:
             base = str(base)
-            cur = str(self.rng.choice(curs, p=weights))
-            country = str(self.rng.choice(self.curs[cur]["countries"]))
-            emp = int(np.clip(self.rng.lognormal(5.5, 1.4), 5, 80000))
+            cur = str(self.identity.choice(curs, p=weights))
+            country = str(self.identity.choice(self.curs[cur]["countries"]))
+            emp = int(np.clip(self.identity.lognormal(5.5, 1.4), 5, 80000))
             seg = "SMB" if emp < 200 else "MM" if emp < 2000 else "ENT"
             suffix = "GmbH" if country == "DE" else "Ltd." if country in ("GB", "IE") \
-                else "K.K." if country == "JP" else str(self.rng.choice(NAME_C[:4]))
+                else "K.K." if country == "JP" else str(self.identity.choice(NAME_C[:4]))
             created = self.ts(self.start + dt.timedelta(days=self.i(-120, (self.as_of - self.start).days - 45)))
             a = dict(Id=self.sfid("001"), Name=f"{base} {suffix}".strip(), base=base,
-                     Website=f"www.{''.join(ch for ch in base.lower() if ch.isalnum())}.com", Industry=str(self.rng.choice(INDUSTRIES)),
+                     Website=f"www.{''.join(ch for ch in base.lower() if ch.isalnum())}.com", Industry=str(self.identity.choice(INDUSTRIES)),
                      NumberOfEmployees=emp, segment=seg, BillingCountry=country,
-                     BillingState=str(self.rng.choice(US_STATES)) if country == "US" else None,
-                     CurrencyIsoCode=cur, OwnerId=str(self.rng.choice(self.reps)), CreatedDate=created,
+                     BillingState=str(self.identity.choice(US_STATES)) if country == "US" else None,
+                     CurrencyIsoCode=cur, OwnerId=str(self.identity.choice(self.reps)), CreatedDate=created,
                      dup=None, canonical=None, last_touch=created, won_any=False, active_contracts=0,
                      case_type="canonical", ParentId=None)
             a["canonical"] = a["Id"]
@@ -272,16 +281,16 @@ class Gen:
 
         # duplicates: a second Account for the same company, created later by a different rep
         for a in list(self.accounts):
-            if self.p(self.cfg["mess"]["duplicate_account"]):
-                variant = self.rng.choice([
+            if self.identity.random() < self.cfg["mess"]["duplicate_account"]:
+                variant = self.identity.choice([
                     a["base"].upper(), f"{a['base']}, Inc.", f"{a['base']} Incorporated", a["base"],
                     f"{a['base']} ({a['BillingCountry']})"])
-                d = dict(a, Id=self.sfid("001"), Name=str(variant), OwnerId=str(self.rng.choice(self.reps)),
-                         Website=self.rng.choice([a["Website"], a["Website"].replace("www.", "https://"), None]),
+                d = dict(a, Id=self.sfid("001"), Name=str(variant), OwnerId=str(self.identity.choice(self.reps)),
+                         Website=self.identity.choice([a["Website"], a["Website"].replace("www.", "https://"), None]),
                          BillingState=None, dup=None, canonical=a["Id"], case_type="original", ParentId=None,
                          CreatedDate=min(a["CreatedDate"] + dt.timedelta(days=self.i(20, 300)),
                                          self.ts(self.last_event_day - dt.timedelta(days=30))),
-                         NumberOfEmployees=None if self.p(0.5) else a["NumberOfEmployees"])
+                         NumberOfEmployees=None if self.identity.random() < 0.5 else a["NumberOfEmployees"])
                 d["last_touch"] = d["CreatedDate"]
                 a["dup"] = d
                 self.accounts.append(d)
@@ -875,15 +884,14 @@ class Gen:
             o["_same_day_touch"] = True
 
     # ------------------------------------------------------------ hard dedup cases
-    # Drawn only after assign_loaded_at, so every earlier rng call stays put.
+    # Which parent and which case come from the identity stream, so the
+    # Id/Name/Website/ParentId map does not move when as_of changes.
     # New account rows are appended. About five subsidiaries also get one
     # Closed Won opportunity and order, appended to those tables.
     def add_hard_dedup_cases(self):
-        eligible = [a for a in self.accounts
-                    if a["canonical"] == a["Id"]
-                    and a["CreatedDate"].date() <= self.last_event_day - dt.timedelta(days=90)]
-        assert len(eligible) >= 60, "not enough aged canonical accounts for hard dedup cases"
-        picked = [eligible[int(i)] for i in self.rng.permutation(len(eligible))[:60]]
+        eligible = [a for a in self.accounts if a["canonical"] == a["Id"]]
+        assert len(eligible) >= 60, "not enough canonical accounts for hard dedup cases"
+        picked = [eligible[int(i)] for i in self.identity.permutation(len(eligible))[:60]]
         collisions = [self._collision_account(parent) for parent in picked[0:15]]
         subsidiaries = [self._subsidiary_account(parent, i) for i, parent in enumerate(picked[15:30])]
         typos = [self._typo_account(parent, i) for i, parent in enumerate(picked[30:45])]
@@ -904,7 +912,7 @@ class Gen:
     def _spawn_account(self, parent, *, name, website, country, currency, canonical, case_type,
                        parent_id, billing_state=None):
         created = self._later_than(parent["CreatedDate"])
-        owner = str(self.rng.choice(self.reps))
+        owner = str(self.identity.choice(self.reps))
         a = dict(
             Id=self.sfid("001"), Name=name, base=parent["base"], Website=website,
             Industry=parent["Industry"], NumberOfEmployees=None, segment=parent["segment"],
@@ -930,8 +938,8 @@ class Gen:
 
     def _collision_account(self, parent):
         places = [(c, cur) for cur, spec in self.curs.items() for c in spec["countries"] if c != parent["BillingCountry"]]
-        country, currency = places[self.i(0, len(places) - 1)]
-        state = str(self.rng.choice(US_STATES)) if country == "US" else None
+        country, currency = places[int(self.identity.integers(0, len(places)))]
+        state = str(self.identity.choice(US_STATES)) if country == "US" else None
         suffix = {"DE": "GmbH", "JP": "K.K.", "GB": "Ltd.", "IE": "Ltd."}.get(country, "Inc.")
         if parent["Name"].endswith(suffix):
             suffix = "LLC" if suffix != "LLC" else "Corp."
