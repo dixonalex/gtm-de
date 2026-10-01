@@ -13,6 +13,7 @@ endif
 build:
 	cd dbt && uv run --project $(ROOT) dbt deps --profiles-dir .
 	cd dbt && uv run --project $(ROOT) dbt build --profiles-dir .
+	uv run python scripts/load_dq_test_results.py
 	cp -f $(ROOT)/dbt/gtm.duckdb $(ROOT)/dbt/gtm_explore.duckdb
 
 fresh:
