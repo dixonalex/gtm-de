@@ -119,58 +119,23 @@ with chosen as (
 ),
 totals as (
     select
-        sum(opening_arr_usd) as opening_arr,
         sum(arr_new_usd) as new_arr,
         sum(arr_expansion_usd) as expansion_arr,
         sum(arr_contraction_usd) as contraction_arr,
         sum(arr_churn_usd) as churn_arr,
-        sum(arr_reactivation_usd) as reactivation_arr,
-        sum(committed_arr_usd) as closing_arr
+        sum(arr_reactivation_usd) as reactivation_arr
     from gtm.arr_monthly
     where month_end = (select month_end from chosen)
-),
-steps as (
-    select 1 as ord, 'Opening' as step, opening_arr as amount, 'total' as kind from totals
-    union all
-    select 2, 'New', new_arr, 'change' from totals
-    union all
-    select 3, 'Expansion', expansion_arr, 'change' from totals
-    union all
-    select 4, 'Contraction', contraction_arr, 'change' from totals
-    union all
-    select 5, 'Churn', churn_arr, 'change' from totals
-    union all
-    select 6, 'Reactivation', reactivation_arr, 'change' from totals
-    union all
-    select 7, 'Closing', closing_arr, 'total' from totals
-),
-walk as (
-    select
-        ord,
-        step,
-        case
-            when kind = 'total' then 0
-            when amount >= 0 then (select opening_arr from totals)
-                + coalesce(
-                    sum(amount) filter (where kind = 'change') over (
-                        order by ord
-                        rows between unbounded preceding and 1 preceding
-                    ),
-                    0
-                )
-            else (select opening_arr from totals)
-                + sum(amount) filter (where kind = 'change') over (
-                    order by ord
-                    rows between unbounded preceding and current row
-                )
-        end / 1000000.0 as placeholder,
-        case when kind = 'change' and amount >= 0 then amount / 1000000.0 end as inc,
-        case when kind = 'change' and amount < 0 then abs(amount) / 1000000.0 end as dec,
-        case when kind = 'total' then amount / 1000000.0 end as tot
-    from steps
 )
-select ord, step, placeholder, inc, dec, tot
-from walk
+select 1 as ord, 'New' as step, new_arr / 1000000.0 as amount from totals
+union all
+select 2, 'Expansion', expansion_arr / 1000000.0 from totals
+union all
+select 3, 'Contraction', contraction_arr / 1000000.0 from totals
+union all
+select 4, 'Churn', churn_arr / 1000000.0 from totals
+union all
+select 5, 'Reactivation', reactivation_arr / 1000000.0 from totals
 order by ord
 ```
 
@@ -182,15 +147,16 @@ with chosen as (
     ) as month_end
 )
 select
-    month_end,
-    sum(committed_arr_usd) - sum(opening_arr_usd) as net_change_usd,
-    sum(committed_arr_usd) as closing_arr
+    strftime(month_end, '%b %Y') as month_label,
+    sum(opening_arr_usd) as opening_arr,
+    sum(committed_arr_usd) as closing_arr,
+    sum(committed_arr_usd) - sum(opening_arr_usd) as net_change_usd
 from gtm.arr_monthly
 where month_end = (select month_end from chosen)
 group by month_end
 ```
 
-## <Value data={bridge_title} column=month_end fmt=shortdate /> closed at <Value data={bridge_title} column=closing_arr fmt=usd1m />, net <Value data={bridge_title} column=net_change_usd fmt=usd1m />
+## <Value data={bridge_title} column=month_label /> opened at <Value data={bridge_title} column=opening_arr fmt=usd1m />, closed at <Value data={bridge_title} column=closing_arr fmt=usd1m />, net <Value data={bridge_title} column=net_change_usd fmt=usd1m />
 
 <ECharts
     height=360px
@@ -201,10 +167,22 @@ group by month_end
         xAxis: { type: 'category' },
         yAxis: { type: 'value', name: 'USD millions' },
         series: [
-            { type: 'bar', stack: 'bridge', silent: true, itemStyle: { color: 'transparent' }, encode: { x: 'step', y: 'placeholder' } },
-            { type: 'bar', stack: 'bridge', itemStyle: { color: '#334155' }, label: { show: true, position: 'top', formatter: (p) => p.value?.inc == null ? '' : Number(p.value.inc).toFixed(1) }, encode: { x: 'step', y: 'inc' } },
-            { type: 'bar', stack: 'bridge', itemStyle: { color: '#334155' }, label: { show: true, position: 'bottom', formatter: (p) => p.value?.dec == null ? '' : Number(p.value.dec).toFixed(1) }, encode: { x: 'step', y: 'dec' } },
-            { type: 'bar', stack: 'bridge', itemStyle: { color: '#334155' }, label: { show: true, position: 'top', formatter: (p) => p.value?.tot == null ? '' : Number(p.value.tot).toFixed(1) }, encode: { x: 'step', y: 'tot' } }
+            {
+                type: 'bar',
+                itemStyle: {
+                    color: (p) => (Number(p.value?.amount) < 0 ? '#8f3d3d' : '#334155')
+                },
+                label: {
+                    show: true,
+                    position: 'top',
+                    formatter: (p) => {
+                        const v = Number(p.value?.amount);
+                        if (!v) return '0';
+                        return (v > 0 ? '+' : '') + v.toFixed(1);
+                    }
+                },
+                encode: { x: 'step', y: 'amount' }
+            }
         ]
     }}
 />
