@@ -1,14 +1,15 @@
 ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 export GTM_DATA_DIR := $(ROOT)/data
 
-# Local extracts stay on the date the steward seed was simulated from.
-# CI calls the generator directly, without --as-of.
-AS_OF ?= 2026-09-28
-
+# AS_OF unset is a live extract. make AS_OF=YYYY-MM-DD pins the generator.
 .PHONY: data build fresh all docs ui lab
 
 data:
+ifdef AS_OF
 	uv run python generator/generate.py --as-of $(AS_OF)
+else
+	uv run python generator/generate.py
+endif
 
 build:
 	cd dbt && uv run --project $(ROOT) dbt deps --profiles-dir .
@@ -17,7 +18,11 @@ build:
 	cp -f $(ROOT)/dbt/gtm.duckdb $(ROOT)/dbt/gtm_explore.duckdb
 
 fresh:
+ifdef AS_OF
+	@echo "freshness skipped: pinned extract (AS_OF=$(AS_OF)) is intentionally stale"
+else
 	cd dbt && uv run --project $(ROOT) dbt source freshness --profiles-dir .
+endif
 
 all: data build fresh
 
