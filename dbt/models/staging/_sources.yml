@@ -5,38 +5,98 @@ sources:
     description: Salesforce objects landed as CSV by the synthetic connector. API field names are verbatim.
     meta:
       external_location: "../data/raw/salesforce/{name}.csv"
-    config:
-      freshness:
-        warn_after: {count: 6, period: hour}
-        error_after: {count: 24, period: hour}
-      loaded_at_field: _loaded_at
     tables:
       - name: user
+        config:
+          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
       - name: dated_conversion_rate
+        config:
+          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
       - name: product2
+        config:
+          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
       - name: pricebook2
+        config:
+          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
       - name: pricebook_entry
+        config:
+          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
       - name: account
+        config:
+          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
       - name: opportunity
+        config:
+          freshness:
+            warn_after: {count: 48, period: hour}
+            error_after: {count: 7, period: day}
+          loaded_at_field: _loaded_at
       - name: opportunity_history
+        config:
+          freshness:
+            warn_after: {count: 48, period: hour}
+            error_after: {count: 7, period: day}
+          loaded_at_field: _loaded_at
       - name: opportunity_line_item
+        config:
+          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
       - name: quote
+        config:
+          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
       - name: quote_line_item
+        config:
+          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
       - name: order
+        config:
+          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
       - name: order_item
+        config:
+          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
 
   - name: billing
     description: Stripe-shaped billing objects. Amounts are minor units and currency codes are lowercase.
     meta:
       external_location: "../data/raw/billing/{name}.csv"
-    config:
-      freshness:
-        warn_after: {count: 24, period: hour}
-        error_after: {count: 48, period: hour}
-      loaded_at_field: _loaded_at
     tables:
       - name: customer
+        config:
+          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
       - name: invoice
+        config:
+          freshness:
+            warn_after: {count: 48, period: hour}
+            error_after: {count: 7, period: day}
+          loaded_at_field: _loaded_at
       - name: invoice_line_item
+        config:
+          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
       - name: charge
+        config:
+          freshness:
+            warn_after: {count: 48, period: hour}
+            error_after: {count: 7, period: day}
+          loaded_at_field: _loaded_at
       - name: usage_record_summary
+        config:
+          freshness: null  # reference/slow-moving table: freshness is enforced at the connector level
+
+  - name: fivetran_log
+    description: Hourly connector sync log. Both tables read the same file; freshness filters to one connector.
+    tables:
+      - name: salesforce_sync
+        meta:
+          external_location: "../data/raw/fivetran_log/connector_sync.csv"
+        config:
+          freshness:
+            warn_after: {count: 2, period: hour}
+            error_after: {count: 6, period: hour}
+            filter: "connector_id = 'salesforce' and status = 'SUCCESSFUL'"
+          loaded_at_field: sync_end
+      - name: stripe_sync
+        meta:
+          external_location: "../data/raw/fivetran_log/connector_sync.csv"
+        config:
+          freshness:
+            warn_after: {count: 24, period: hour}
+            error_after: {count: 48, period: hour}
+            filter: "connector_id = 'stripe' and status = 'SUCCESSFUL'"
+          loaded_at_field: sync_end

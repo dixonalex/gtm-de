@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: stg_fivetran_log__connector_sync
+    description: One row per connector sync attempt. Grain is connector_id plus sync_start.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - connector_id
+              - sync_start
+    columns:
+      - name: connector_id
+        data_tests: [not_null]
+      - name: sync_start
+        data_tests: [not_null]
+      - name: sync_end
+        data_tests: [not_null]
+      - name: status
+        data_tests: [not_null]

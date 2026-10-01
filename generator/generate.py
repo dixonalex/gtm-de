@@ -2,7 +2,9 @@
 
 Output mirrors what a Fivetran-style connector lands in a warehouse: one table per object,
 current-state rows, Salesforce API field names verbatim, Stripe field names verbatim
-(amounts in minor units, zero-decimal JPY, lowercase currency codes), plus `_loaded_at`.
+(amounts in minor units, zero-decimal JPY, lowercase currency codes), plus `_loaded_at`
+(the sync_end of the first successful connector run at or after the row changed).
+`data/raw/fivetran_log/connector_sync.csv` is the hourly sync log for the last 14 days.
 
 Usage:
     python generator/generate.py                     # as_of = today (UTC), now = wall clock
@@ -765,6 +767,7 @@ class Gen:
         for o in self.rows("order"):
             for it in o["_items"]:
                 self.rows("order_item").append(it)
+        # Preserve the historical rng sequence (including late-arrival draws) before any new draws.
         for tbl in sf_tables + ["customer", "invoice", "invoice_line_item", "charge", "usage_record_summary"]:
             sync = self.sf_sync if tbl in sf_tables else self.billing_sync
             for r in self.rows(tbl):
@@ -772,16 +775,79 @@ class Gen:
                 if isinstance(mod, dt.date) and not isinstance(mod, dt.datetime):
                     mod = dt.datetime.combine(mod, dt.time())
                 t = mod + dt.timedelta(minutes=self.i(2, 50))
+                r["_late_arrival"] = None
                 if tbl in ("opportunity", "order", "order_item", "invoice", "charge") and \
                         mod < sync - dt.timedelta(days=21) and self.p(late):
                     t = mod + dt.timedelta(days=self.i(3, 20), minutes=self.i(0, 600))
-                r["_loaded_at"] = min(t, sync)
+                    r["_late_arrival"] = t
+        self.build_connector_syncs()
+        self.touch_open_opportunities()
+        for tbl in sf_tables + ["customer", "invoice", "invoice_line_item", "charge", "usage_record_summary"]:
+            anchor = self.sf_sync if tbl in sf_tables else self.billing_sync
+            for r in self.rows(tbl):
+                if r.get("_same_day_touch"):
+                    event = r["SystemModstamp"]
+                elif r.get("_late_arrival") is not None:
+                    event = r["_late_arrival"]
+                else:
+                    event = r.get("SystemModstamp", r.get("_updated"))
+                    if isinstance(event, dt.date) and not isinstance(event, dt.datetime):
+                        event = dt.datetime.combine(event, dt.time())
+                r["_loaded_at"] = self.snap_to_sync(anchor, event)
+
+    def snap_to_sync(self, last_success: dt.datetime, event_time: dt.datetime) -> dt.datetime:
+        """First successful hourly sync_end at or after event_time, never past last_success."""
+        if event_time >= last_success:
+            return last_success
+        hours_back = int((last_success - event_time).total_seconds() // 3600)
+        return last_success - dt.timedelta(hours=hours_back)
+
+    def _sync_ends(self, last_success: dt.datetime) -> list[dt.datetime]:
+        window_start = self.now - dt.timedelta(days=14)
+        ends: list[dt.datetime] = []
+        end = last_success
+        while end >= window_start:
+            ends.append(end)
+            end -= dt.timedelta(hours=1)
+        ends.reverse()
+        return ends
+
+    def build_connector_syncs(self):
+        """Hourly Fivetran-style sync log for the 14 days before now. rows_updated draws are new rng."""
+        duration = dt.timedelta(minutes=4)
+        for end in self._sync_ends(self.sf_sync):
+            self.rows("connector_sync").append(dict(
+                connector_id="salesforce", sync_start=end - duration, sync_end=end,
+                status="SUCCESSFUL", rows_updated=self.i(0, 20000)))
+        for end in self._sync_ends(self.billing_sync):
+            self.rows("connector_sync").append(dict(
+                connector_id="stripe", sync_start=end - duration, sync_end=end,
+                status="SUCCESSFUL", rows_updated=self.i(0, 20000)))
+        end = self.billing_sync + dt.timedelta(hours=1)
+        while end <= self.now:
+            self.rows("connector_sync").append(dict(
+                connector_id="stripe", sync_start=end - duration, sync_end=end,
+                status="FAILURE_WITH_TASK", rows_updated=0))
+            end += dt.timedelta(hours=1)
+
+    def touch_open_opportunities(self):
+        """Field edits on open opps in the last 8h. No OpportunityHistory row (NextStep-style)."""
+        for o in self.rows("opportunity"):
+            if o["IsDeleted"] or o["IsClosed"]:
+                continue
+            if not self.p(0.05):
+                continue
+            bumped = self.sf_sync - dt.timedelta(seconds=self.i(0, 8 * 3600))
+            o["LastModifiedDate"] = bumped
+            o["SystemModstamp"] = bumped
+            o["_same_day_touch"] = True
 
     def write(self, out: Path):
         systems = {"salesforce": ["user", "dated_conversion_rate", "product2", "pricebook2", "pricebook_entry",
                                   "account", "opportunity", "opportunity_history", "opportunity_line_item",
                                   "quote", "quote_line_item", "order", "order_item"],
-                   "billing": ["customer", "invoice", "invoice_line_item", "charge", "usage_record_summary"]}
+                   "billing": ["customer", "invoice", "invoice_line_item", "charge", "usage_record_summary"],
+                   "fivetran_log": ["connector_sync"]}
         summary = []
         for system, tables in systems.items():
             (out / system).mkdir(parents=True, exist_ok=True)
