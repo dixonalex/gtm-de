@@ -1,4 +1,4 @@
-# GTM Data: quote-to-cash on synthetic Salesforce + Stripe
+# GTM Data Engineering
 
 ![CI](https://github.com/dixonalex/gtm-de/actions/workflows/ci.yml/badge.svg) · [Live dashboard](https://dixonalex.github.io/gtm-de/) · data pinned to 30 Sep 2026
 
@@ -54,38 +54,47 @@ Full system: [docs/design](docs/design/README.md) · [PDF](docs/design/design-sy
 - CI checks the numbers on every page against a spec and loads each page in a headless browser, at desktop width and at 390×844 and 360×800.
 
 
+
 ## If this were going to production
 
 This is a demo on synthetic data. Here's what I would do to take it to production.
 
 **Start with the people**
+
 - [ ] Interview stakeholders and rank the deliverables with RICE before building anything.
 - [ ] Find out what GTM data products already exist and what needs to be built new.
 - [ ] Follow the org's standards for publishing new data products.
 
 **Correctness**
+
 - [ ] Replace the planted test cases (like the JPY tie-out) with generic checks that work for any currency.
 - [ ] Test every combination of segment and region, not just one at a time.
 
 **Sources and pipelines**
+
 - [ ] Real connectors with a data contract and an owner for each source table.
 - [ ] Land raw files by source and load date so a backfill doesn't mean reloading everything.
 - [ ] Incremental models, plus a plan for late changes like restated invoices and reopened opportunities.
 - [ ] Figure out which entities need history snapshots. Opportunities for sure.
 
 **Serving**
+
 - [ ] A semantic layer so each metric is defined once and every tool uses the same one.
 - [ ] A cloud warehouse with role-based access to rep and comp data.
 - [ ] An MCP layer so people can ask Claude ad-hoc questions. Certified financial metrics, standard reports and operational dashboards stay in BI.
 
 **Operations**
+
 - [ ] Send freshness and test failures to the owning team's Slack channel and on-call.
 - [ ] Create incidents from alerts instead of a seed file.
 - [ ] Run builds on a schedule with an SLA on the pipeline itself.
 
 **Product**
+
 - [ ] Track which pages and charts people actually use and cut the rest.
 - [ ] Master data management and writeback, so business owners can approve things like duplicate account matches themselves.
+
+
 
 ## Quickstart
 
@@ -93,22 +102,28 @@ You'll need [uv](https://docs.astral.sh/uv/), the DuckDB CLI, Node 22 and Chrome
 
 To build the same data as the live site:
 
-    make AS_OF=2026-09-30 all
+```
+make AS_OF=2026-09-30 all
+```
 
 That generates the synthetic data and builds the dbt project. Leave off `AS_OF` to generate as of today, which also runs the source freshness checks.
 
 To run the dashboard locally:
 
-    make dash
+```
+make dash
+```
 
-It opens at http://localhost:3000.
+It opens at [http://localhost:3000](http://localhost:3000).
 
 To poke around the warehouse, use `make ui` for the DuckDB UI, `make lab` for Jupyter, or `make docs` for dbt docs. They all read `gtm_explore.duckdb`, a copy that's refreshed on every build so it never locks dbt.
 
 To run the checks CI runs:
 
-    make story-check
-    make page-check
+```
+make story-check
+make page-check
+```
 
 `story-check` compares the numbers against the [story contract](docs/design/story-contract.md). `page-check` builds the dashboard and loads all five pages in a browser at desktop width and at 390×844 and 360×800.
 
