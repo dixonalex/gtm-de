@@ -78,18 +78,27 @@ async function connect(url) {
 	await send("Page.navigate", { url });
 }
 
-async function evalText(expression) {
-	const result = await send("Runtime.evaluate", { expression, returnByValue: true });
-	return result.result?.result?.value ?? "";
+function thrown(message) {
+	const details = message?.result?.exceptionDetails;
+	if (!details) return "";
+	const text = details.exception?.description || details.text || details.exception?.value;
+	return String(text || "evaluation failed").replaceAll("\n", " | ");
 }
 
-async function evalPromise(expression) {
-	const result = await send("Runtime.evaluate", {
+async function evaluate(expression, awaitPromise = false) {
+	const message = await send("Runtime.evaluate", {
 		expression,
-		awaitPromise: true,
 		returnByValue: true,
+		awaitPromise,
 	});
-	return result.result?.result?.value ?? "";
+	const error = thrown(message);
+	if (error) throw new Error(error);
+	return message.result?.result?.value ?? "";
+}
+
+async function evalText(expression) {
+	const message = await send("Runtime.evaluate", { expression, returnByValue: true });
+	return message.result?.result?.value ?? "";
 }
 
 async function assertNav(label) {
@@ -113,16 +122,63 @@ async function assertNav(label) {
 
 async function assertCopy() {
 	if (!basePath) return;
-	const copied = await evalPromise(`(async () => {
+	const origin = new URL(base).origin;
+	const prefix = `${origin}${basePath}/`;
+	const before = failures.length;
+	try {
+		await waitFor(
+			tile("Committed ARR"),
+			(text) => text.includes(enterpriseArr) && !text.includes(companyArr),
+			"copy link tiles",
+		);
+		await waitFor(
+			`[...document.querySelectorAll("button")].some((node) => node.textContent.includes("Copy link to this view")) ? "ready" : ""`,
+			(text) => text === "ready",
+			"copy link button",
+		);
+		if (failures.length !== before) return;
+		await evaluate(`(() => {
+			window.__copied = "";
+			Object.defineProperty(navigator, "clipboard", {
+				configurable: true,
+				value: { writeText: async (value) => { window.__copied = String(value); } },
+			});
+			document.execCommand = (command) => {
+				if (command === "copy") {
+					const node = document.activeElement;
+					if (node && "value" in node) window.__copied = String(node.value);
+				}
+				return true;
+			};
+			return "ok";
+		})()`);
+		await evaluate(`(() => {
+			const button = [...document.querySelectorAll("button")].find((node) => node.textContent.includes("Copy link to this view"));
+			if (!button) throw new Error("copy button missing");
+			button.click();
+			return "clicked";
+		})()`);
 		let copied = "";
-		navigator.clipboard.writeText = async (value) => { copied = String(value); };
-		const button = [...document.querySelectorAll("button")].find((node) => node.textContent.includes("Copy link to this view"));
-		if (!button) return "missing";
-		button.click();
-		await new Promise((resolve) => setTimeout(resolve, 50));
-		return copied;
-	})()`);
-	if (!String(copied).includes(`${basePath}/`)) failures.push(`copy link: ${copied}`);
+		const deadline = Date.now() + 3000;
+		while (Date.now() < deadline) {
+			copied = String(await evaluate("window.__copied || ''"));
+			if (copied) break;
+			await sleep(100);
+		}
+		const search = String(await evaluate("location.search"));
+		let copiedSearch = "";
+		try {
+			copiedSearch = copied ? new URL(copied).search : "";
+		} catch (error) {
+			failures.push(`copy link: ${error?.message || copied || "not a url"}`);
+			return;
+		}
+		if (!copied.startsWith(prefix) || copiedSearch !== search) {
+			failures.push(`copy link: ${copied || "timed out before a URL was copied"}`);
+		}
+	} catch (error) {
+		failures.push(`copy link: ${error?.message || error || "evaluation failed"}`);
+	}
 }
 
 function tileFlash(text) {
@@ -224,7 +280,6 @@ const companyBookings = money(numbers.finance.bookings);
 try {
 	await connect("about:blank");
 	await navigateWatch(`${base}/`, tile("Committed ARR"), (text) => text.includes(companyArr), "default executive ARR");
-	await assertCopy();
 	await waitFor(
 		`document.body.innerText`,
 		(text) => text.includes("Company") && text.includes("Revenue review"),
@@ -242,6 +297,7 @@ try {
 		(text) => text.includes("Enterprise only"),
 		"seeded enterprise subtitle",
 	);
+	await assertCopy();
 
 	await clickOption(1, "Mid-market");
 	await waitFor(
