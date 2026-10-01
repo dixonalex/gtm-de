@@ -367,10 +367,13 @@ h1.title {
 
 	.gtm-nav {
 		height: auto;
+		max-width: 100%;
 	}
 
 	.gtm-nav-inner {
 		width: 100%;
+		max-width: 100%;
+		min-width: 0;
 		height: auto;
 		flex-direction: column;
 		align-items: stretch;
@@ -385,8 +388,11 @@ h1.title {
 	}
 
 	.gtm-tabs {
+		box-sizing: border-box;
 		height: 44px;
 		width: 100%;
+		max-width: 100%;
+		min-width: 0;
 		overflow-x: auto;
 		flex-wrap: nowrap;
 		padding: 0 8px;
@@ -422,6 +428,17 @@ h1.title {
 	.two-up.bridge {
 		grid-template-columns: 1fr;
 		gap: 8px;
+		min-width: 0;
+		max-width: 100%;
+	}
+
+	.two-up > *,
+	.gtm-frame section,
+	.gtm-frame .block,
+	.table-scroll,
+	.canvas {
+		min-width: 0;
+		max-width: 100%;
 	}
 
 	.gtm-controls,
@@ -540,9 +557,9 @@ h1.title {
 	}
 
 	table.commentary a {
-		display: inline-flex;
-		align-items: center;
-		min-height: 44px;
+		display: inline;
+		min-height: 0;
+		line-height: inherit;
 	}
 
 	.mover {

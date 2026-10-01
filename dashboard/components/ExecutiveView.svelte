@@ -158,7 +158,7 @@
 							<a href="#arr">View</a>
 						{:else}
 							<em>
-								No commentary for {sliceName(note)} yet.{#if placeholder(note)} {placeholder(note)}.{/if}
+								No commentary for {sliceName(note)} yet.{#if placeholder(note)}{` ${placeholder(note)}.`}{/if}
 							</em>
 						{/if}
 					</td>

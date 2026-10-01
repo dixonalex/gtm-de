@@ -280,12 +280,6 @@ const owner = numbers.deal_desk.open_items[0].owner;
 const companyBookings = money(numbers.finance.bookings);
 
 async function runMobile() {
-	await send("Emulation.setDeviceMetricsOverride", {
-		width: 390,
-		height: 844,
-		deviceScaleFactor: 1,
-		mobile: true,
-	});
 	const routes = [
 		["/", "Revenue review", true],
 		["/sales/", "Pipeline and forecast", false],
@@ -293,28 +287,52 @@ async function runMobile() {
 		["/finance/", "Bookings to billings", false],
 		["/data-health/", "Pipeline and tests", false],
 	];
-	const audit = `(() => {
-		const viewW = window.innerWidth;
-		const viewH = window.innerHeight;
+	const phoneFrame = (src) => `(() => {
+		document.open();
+		document.write('<!DOCTYPE html><html><body style="margin:0"><iframe id="phone" title="phone" style="width:390px;height:844px;border:0;display:block" src="${src}"></iframe></body></html>');
+		document.close();
+		return "ok";
+	})()`;
+	const inPhone = (body) => `(() => {
+		const frame = document.getElementById("phone");
+		const doc = frame && frame.contentDocument;
+		const win = frame && frame.contentWindow;
+		if (!doc || !win) return "";
+		${body}
+	})()`;
+	const auditFor = (kpis) => inPhone(`
+		const viewW = win.innerWidth;
+		const viewH = win.innerHeight;
 		const problems = [];
-		if (document.documentElement.scrollWidth > viewW) {
-			const wide = [...document.querySelectorAll("body *")]
-				.map((el) => {
-					const box = el.getBoundingClientRect();
-					return {
-						tag: el.tagName,
-						cls: String(el.className || "").slice(0, 60),
-						right: Math.round(box.right),
-					};
-				})
-				.filter((item) => item.right > viewW + 1)
-				.slice(0, 6);
-			problems.push("horizontal overflow " + document.documentElement.scrollWidth + ">" + viewW + " " + JSON.stringify(wide));
+		const scrollsX = (el) => {
+			let node = el.parentElement;
+			while (node && node !== doc.body && node !== doc.documentElement) {
+				const overflow = win.getComputedStyle(node).overflowX;
+				if (overflow === "auto" || overflow === "scroll" || overflow === "overlay") return true;
+				node = node.parentElement;
+			}
+			return false;
+		};
+		const wide = [];
+		for (const el of doc.body.querySelectorAll("*")) {
+			if (scrollsX(el)) continue;
+			const box = el.getBoundingClientRect();
+			if (box.width < 1 || box.height < 1) continue;
+			if (box.right > viewW + 1) {
+				wide.push(el.tagName + "." + String(el.className || "").slice(0, 40) + " " + Math.round(box.right));
+				if (wide.length >= 6) break;
+			}
 		}
-		const charts = [...document.querySelectorAll(".canvas")];
+		if (wide.length) problems.push("horizontal overflow " + doc.documentElement.scrollWidth + ">" + viewW + " " + wide.join(" | "));
+		const charts = [...doc.querySelectorAll(".canvas")];
 		if (charts.some((node) => !node.querySelector("svg"))) problems.push("chart is not svg");
-		for (const svg of document.querySelectorAll(".canvas svg")) {
+		for (const svg of doc.querySelectorAll(".canvas svg")) {
+			const host = svg.closest(".canvas");
+			const hostBox = host.getBoundingClientRect();
 			const svgBox = svg.getBoundingClientRect();
+			if (svgBox.width > hostBox.width + 1) {
+				problems.push("chart wider than container " + Math.round(svgBox.width) + ">" + Math.round(hostBox.width));
+			}
 			const texts = [...svg.querySelectorAll("text")].filter((node) => (node.textContent || "").trim());
 			for (const text of texts) {
 				const tb = text.getBoundingClientRect();
@@ -345,8 +363,8 @@ async function runMobile() {
 				}
 			}
 		}
-		if (window.__kpiCheck) {
-			const tiles = [...document.querySelectorAll("[data-kpi]")].slice(0, 4);
+		if (${kpis ? "true" : "false"}) {
+			const tiles = [...doc.querySelectorAll("[data-kpi]")].slice(0, 4);
 			if (tiles.length < 4) problems.push("expected 4 kpi tiles");
 			for (const tile of tiles) {
 				const box = tile.getBoundingClientRect();
@@ -356,21 +374,27 @@ async function runMobile() {
 			}
 		}
 		return problems.join(" || ");
-	})()`;
+	`);
 	for (const [path, marker, kpis] of routes) {
-		await send("Page.navigate", { url: `${base}${path}` });
-		await waitFor(`document.body.innerText`, (text) => text.includes(marker), `${marker} mobile`);
+		await send("Page.navigate", { url: `${base}/` });
+		await waitFor(`document.body ? "ready" : ""`, (text) => text === "ready", `${marker} host`);
+		await evaluate(phoneFrame(`${base}${path}`));
 		await waitFor(
-			`(() => {
-				const charts = [...document.querySelectorAll(".canvas")];
+			inPhone(`return (doc.body && doc.body.innerText.includes(${JSON.stringify(marker)})) ? "ready" : "";`),
+			(text) => text === "ready",
+			`${marker} mobile`,
+		);
+		await waitFor(
+			inPhone(`
+				const charts = [...doc.querySelectorAll(".canvas")];
 				if (!charts.length) return "ready";
 				return charts.every((node) => node.querySelector("svg")) ? "ready" : "";
-			})()`,
+			`),
 			(text) => text === "ready",
 			`${marker} charts`,
 		);
-		await evaluate(`window.scrollTo(0,0); window.__kpiCheck = ${kpis ? "true" : "false"}; "ok"`);
-		const found = String(await evaluate(audit));
+		await evaluate(inPhone(`win.scrollTo(0, 0); return "ok";`));
+		const found = String(await evaluate(auditFor(kpis)));
 		if (found) failures.push(`${marker}: ${found}`);
 	}
 }

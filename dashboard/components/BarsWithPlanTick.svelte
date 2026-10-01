@@ -25,7 +25,7 @@
 		const delta = row.value - row.plan;
 		const share = row.plan ? row.value / row.plan : null;
 		const full = `${value} · ${money(delta, { signed: true })} · ${percent(share)} of plan`;
-		return narrow ? fitDirectLabel(full, value, '400 12px "IBM Plex Sans", sans-serif', { left: 36, plotShare: 0.4 }) : full;
+		return narrow ? fitDirectLabel(full, value, '400 12px "IBM Plex Sans", sans-serif') : full;
 	}
 
 	$: gutter = (() => {

@@ -44,12 +44,12 @@
 		void layoutTick;
 		if (!narrow) return 132;
 		const labels = [named("Commit", commit[last]), named("Best case", bestCase[last])];
-		const widest = Math.max(48, ...labels.map((text) => measureText(text, '600 12px "IBM Plex Sans", sans-serif')));
-		return Math.ceil(widest + 24);
+		const widest = Math.max(36, ...labels.map((text) => measureText(text, '600 12px "IBM Plex Sans", sans-serif')));
+		return Math.ceil(widest + 16);
 	})();
 
 	$: option = {
-		grid: { left: narrow ? 48 : 64, right: gutter, top: 28, bottom: 28 },
+		grid: { left: narrow ? 44 : 64, right: gutter, top: 28, bottom: 28 },
 		xAxis: {
 			type: "category",
 			data: labels,

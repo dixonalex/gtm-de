@@ -88,8 +88,8 @@
 	$: gutter = (() => {
 		void layoutTick;
 		if (!narrow) return 168;
-		const widest = Math.max(48, ...callout.map((row) => measureText(row.text, `${row.weight} ${row.size}px "IBM Plex Sans", sans-serif`)));
-		return Math.ceil(widest + 28);
+		const widest = Math.max(36, ...callout.map((row) => measureText(row.text, `${row.weight} ${row.size}px "IBM Plex Sans", sans-serif`)));
+		return Math.ceil(widest + 16);
 	})();
 
 	$: option = {
@@ -98,10 +98,10 @@
 		legend: { show: false },
 		grid: showGap
 			? [
-					{ left: narrow ? 48 : 56, right: gutter, top: 36, height: "40%" },
-					{ left: narrow ? 48 : 56, right: gutter, top: "64%", bottom: 28 },
+					{ left: narrow ? 44 : 56, right: gutter, top: 36, height: "40%" },
+					{ left: narrow ? 44 : 56, right: gutter, top: "64%", bottom: 28 },
 				]
-			: [{ left: narrow ? 48 : 56, right: gutter, top: 48, bottom: 28 }],
+			: [{ left: narrow ? 44 : 56, right: gutter, top: 48, bottom: 28 }],
 		xAxis: (showGap ? [0, 1] : [0]).map((gridIndex) => ({
 			type: "category",
 			gridIndex,

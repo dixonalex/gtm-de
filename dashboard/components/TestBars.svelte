@@ -1,9 +1,16 @@
 <script>
+	import { onMount } from "svelte";
 	import ChartCanvas from "./ChartCanvas.svelte";
 	import { count } from "./format.js";
 	import { FOCUS, MUTED, RULE, text } from "./chartTheme.js";
+	import { mobileNow, trackNarrow } from "./narrow.js";
 
 	export let panels = [];
+
+	let narrow = mobileNow();
+	onMount(() => trackNarrow((value) => {
+		narrow = value;
+	}));
 
 	$: labels = panels[0]?.labels || [];
 	$: max = Math.max(1, ...panels.flatMap((panel) => panel.values || []));
@@ -22,7 +29,12 @@
 				fontFamily: "IBM Plex Sans Condensed, sans-serif",
 			},
 		})),
-		grid: panels.map((_, index) => ({ left: 4, right: 36, top: 18 + index * 92, height: 52 })),
+		grid: panels.map((_, index) => ({
+			left: narrow ? 28 : 4,
+			right: narrow ? 28 : 36,
+			top: 18 + index * 92,
+			height: 52,
+		})),
 		xAxis: panels.map((_, index) => ({
 			type: "category",
 			gridIndex: index,
@@ -34,6 +46,7 @@
 				color: MUTED,
 				fontFamily: "IBM Plex Sans Condensed, sans-serif",
 				fontSize: 11,
+				hideOverlap: false,
 				interval: (i) => i === 0 || i === 14 || i === labels.length - 1,
 			},
 			splitLine: { show: false },

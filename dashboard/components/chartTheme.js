@@ -162,12 +162,11 @@ export function chartWidth() {
 	return Math.min(window.innerWidth - 32, 1120);
 }
 
-/** Keep the words. On a narrow chart, fall back to the value when the words would run off. */
-export function fitDirectLabel(full, valueOnly, font, { left = 56, plotShare = 0.48 } = {}) {
+/** Keep the words. On a narrow chart, fall back to the value so the plot can use the column. */
+export function fitDirectLabel(full, valueOnly, font, { plotShare = 0.78 } = {}) {
 	if (typeof window === "undefined" || window.innerWidth > 640) return full;
-	const width = chartWidth();
-	const room = width - left - width * plotShare;
-	if (measureText(full, font) <= Math.max(36, room)) return full;
+	const room = Math.max(36, chartWidth() * (1 - plotShare));
+	if (measureText(full, font) <= room) return full;
 	return valueOnly;
 }
 
