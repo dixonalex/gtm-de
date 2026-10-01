@@ -49,8 +49,15 @@ with months as (
 )
 select
     strftime(latest.month_end, '%b %Y') as month_label,
+    strftime(prior.month_end, '%b') as prior_month,
     latest.committed_arr_usd,
-    latest.committed_arr_usd - prior.committed_arr_usd as mom_delta_usd,
+    case
+        when prior.committed_arr_usd is null then null
+        when abs(latest.committed_arr_usd - prior.committed_arr_usd) < 50000 then '$0'
+        when latest.committed_arr_usd >= prior.committed_arr_usd
+            then '+$' || printf('%.1f', (latest.committed_arr_usd - prior.committed_arr_usd) / 1000000.0) || 'M'
+        else '-$' || printf('%.1f', (prior.committed_arr_usd - latest.committed_arr_usd) / 1000000.0) || 'M'
+    end as delta_label,
     latest.net_new_arr_usd
 from months latest
 left join months prior on prior.rn = 2
@@ -116,11 +123,9 @@ from gtm.test_results
     value=committed_arr_usd
     title={"Committed ARR · " + arr_kpi[0].month_label}
     fmt=usd1m
-    comparison=mom_delta_usd
-    comparisonFmt=usd1m
-    comparisonTitle="vs prior month"
-    neutralMin=-1000000000000
-    neutralMax=1000000000000
+    comparison=delta_label
+    comparisonDelta=false
+    comparisonTitle={"vs " + arr_kpi[0].prior_month}
     link="/arr"
 />
 
