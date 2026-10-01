@@ -1,7 +1,16 @@
 <script>
+	import { onMount } from "svelte";
 	import ChartCanvas from "./ChartCanvas.svelte";
 	import { BAND, axisMoney, money, points } from "./format.js";
-	import { CONTEXT, FOCUS, MUTED, RULE, UNFAVORABLE, axisWindow, text, valueAxisTicks } from "./chartTheme.js";
+	import { CONTEXT, FOCUS, MUTED, RULE, UNFAVORABLE, axisWindow, fitDirectLabel, measureText, text, valueAxisTicks } from "./chartTheme.js";
+	import { mobileNow, trackNarrow } from "./narrow.js";
+
+	let narrow = mobileNow();
+	let layoutTick = 0;
+	onMount(() => trackNarrow((value) => {
+		narrow = value;
+		layoutTick += 1;
+	}));
 
 	export let labels = [];
 	export let actual = [];
@@ -56,16 +65,43 @@
 	})();
 	$: eventAt = event ? shortMonth(event.at) : null;
 
+	function direct(valueText, prefix, font) {
+		const labeled = prefix === "vs plan" ? `${valueText} vs plan` : `${prefix} ${valueText}`;
+		if (!narrow) return labeled;
+		return fitDirectLabel(labeled, valueText, font);
+	}
+
+	$: callout = (() => {
+		void layoutTick;
+		if (last < 0) return [];
+		const planText = format(plan[last]);
+		const actualText = format(actual[last]);
+		const gapValue = pointGap ? points(gapPts) : money(delta, { signed: true });
+		const gapText = pointGap ? gapValue : direct(gapValue, "vs plan", '400 12px "IBM Plex Sans", sans-serif');
+		return [
+			{ text: direct(planText, planName, '400 12px "IBM Plex Sans", sans-serif'), fill: CONTEXT, weight: 400, size: 12 },
+			{ text: direct(actualText, actualName, '600 13px "IBM Plex Sans", sans-serif'), fill: FOCUS, weight: 600, size: 13 },
+			{ text: gapText, fill: outside ? UNFAVORABLE : MUTED, weight: 400, size: 12 },
+		];
+	})();
+
+	$: gutter = (() => {
+		void layoutTick;
+		if (!narrow) return 168;
+		const widest = Math.max(48, ...callout.map((row) => measureText(row.text, `${row.weight} ${row.size}px "IBM Plex Sans", sans-serif`)));
+		return Math.ceil(widest + 28);
+	})();
+
 	$: option = {
 		animation: false,
 		textStyle: text,
 		legend: { show: false },
 		grid: showGap
 			? [
-					{ left: 56, right: 168, top: 36, height: "40%" },
-					{ left: 56, right: 168, top: "64%", bottom: 28 },
+					{ left: narrow ? 48 : 56, right: gutter, top: 36, height: "40%" },
+					{ left: narrow ? 48 : 56, right: gutter, top: "64%", bottom: 28 },
 				]
-			: [{ left: 56, right: 168, top: 48, bottom: 28 }],
+			: [{ left: narrow ? 48 : 56, right: gutter, top: 48, bottom: 28 }],
 		xAxis: (showGap ? [0, 1] : [0]).map((gridIndex) => ({
 			type: "category",
 			gridIndex,
@@ -136,17 +172,10 @@
 					// The text anchor is the vertical center, so pad by half a line.
 					const planTop = upper - 6 - lineH;
 					const actualTop = lower + 6 + lineH / 2;
-					const rows = [
-						{ text: `${planName} ${format(plan[last])}`, y: planTop, fill: CONTEXT, weight: 400, size: 12 },
-						{ text: `${actualName} ${format(actual[last])}`, y: actualTop, fill: FOCUS, weight: 600, size: 13 },
-						{
-							text: pointGap ? points(gapPts) : `${money(delta, { signed: true })} vs plan`,
-							y: actualTop + lineH,
-							fill: outside ? UNFAVORABLE : MUTED,
-							weight: 400,
-							size: 12,
-						},
-					];
+					const rows = callout.map((row, index) => ({
+						...row,
+						y: index === 0 ? planTop : actualTop + (index - 1) * lineH,
+					}));
 					return {
 						type: "group",
 						children: rows.map((row) => ({

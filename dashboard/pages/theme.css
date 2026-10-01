@@ -351,3 +351,211 @@ h1.title {
 	color: var(--color-ink);
 	font-weight: 500;
 }
+
+@media (max-width: 640px) {
+	html,
+	body {
+		max-width: 100%;
+	}
+
+	#evidence-main-article,
+	main,
+	.mx-auto {
+		min-width: 0 !important;
+		max-width: 100% !important;
+	}
+
+	.gtm-nav {
+		height: auto;
+	}
+
+	.gtm-nav-inner {
+		width: 100%;
+		height: auto;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0;
+	}
+
+	.gtm-wordmark {
+		display: flex;
+		align-items: center;
+		min-height: 44px;
+		padding: 0 16px;
+	}
+
+	.gtm-tabs {
+		height: 44px;
+		width: 100%;
+		overflow-x: auto;
+		flex-wrap: nowrap;
+		padding: 0 8px;
+		scrollbar-width: none;
+	}
+
+	.gtm-tabs::-webkit-scrollbar {
+		display: none;
+	}
+
+	.gtm-tab {
+		flex: 0 0 auto;
+		min-height: 44px;
+		padding: 0 12px;
+	}
+
+	.gtm-frame {
+		width: calc(100% - 32px);
+		padding-top: 16px;
+		padding-bottom: 48px;
+		min-width: 0;
+	}
+
+	.kpi-row,
+	.kpi-row.three {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 14px 16px;
+		margin: 4px 0 16px;
+	}
+
+	.two-up,
+	.two-up.even,
+	.two-up.bridge {
+		grid-template-columns: 1fr;
+		gap: 8px;
+	}
+
+	.gtm-controls,
+	.slice-controls,
+	.slice-controls > div {
+		flex-wrap: wrap;
+		width: 100%;
+		max-width: 100%;
+		row-gap: 8px;
+	}
+
+	.slice-controls .contents,
+	.slice-controls .inline-block,
+	.slice-controls [data-button-root] {
+		min-width: 0 !important;
+		max-width: 100% !important;
+	}
+
+	.slice-controls .inline-block {
+		height: 44px;
+	}
+
+	.slice-controls [data-button-root] {
+		height: 42px !important;
+		min-height: 44px;
+		overflow: hidden;
+	}
+
+	.slice-clear {
+		min-width: 44px;
+		min-height: 44px;
+	}
+
+	.inert button {
+		min-height: 44px;
+		padding: 0 12px;
+	}
+
+	[data-melt-popover-content] {
+		width: min(220px, calc(100vw - 16px)) !important;
+	}
+
+	[data-melt-popover-content] [data-cmdk-item] {
+		min-height: 44px;
+		height: auto;
+	}
+
+	.table-scroll {
+		overflow-x: auto;
+		max-width: 100%;
+		-webkit-overflow-scrolling: touch;
+	}
+
+	.table-scroll table {
+		width: max-content !important;
+		min-width: 100% !important;
+		border-collapse: separate !important;
+		border-spacing: 0 !important;
+	}
+
+	.table-scroll th:first-child,
+	.table-scroll td:first-child {
+		position: sticky;
+		left: 0;
+		z-index: 1;
+		max-width: 46vw;
+		background: var(--color-ground);
+		box-shadow: 8px 0 8px -8px rgba(27, 33, 38, 0.18);
+	}
+
+	.table-scroll th:not(:first-child),
+	.table-scroll td:not(:first-child) {
+		white-space: nowrap;
+	}
+
+	.table-scroll a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+	}
+
+	.gtm-frame .id {
+		display: none !important;
+	}
+
+	table.commentary,
+	table.commentary tbody,
+	table.commentary tr,
+	table.commentary td {
+		display: block;
+		width: auto !important;
+	}
+
+	table.commentary {
+		overflow: visible !important;
+	}
+
+	table.commentary thead {
+		display: none;
+	}
+
+	table.commentary tr {
+		padding: 12px 0;
+		border-bottom: 1px solid var(--color-rule);
+	}
+
+	table.commentary td {
+		border: 0 !important;
+		padding: 0 0 6px !important;
+	}
+
+	table.commentary td:last-child {
+		color: var(--color-ink-muted);
+		font-size: 13px;
+		padding-bottom: 0 !important;
+	}
+
+	table.commentary a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+	}
+
+	.mover {
+		grid-template-columns: minmax(0, 1fr) minmax(40px, 28%) auto !important;
+	}
+
+	.mover .bar {
+		max-width: 100%;
+	}
+
+	.gtm-frame summary {
+		display: flex;
+		align-items: center;
+		min-height: 44px;
+	}
+}

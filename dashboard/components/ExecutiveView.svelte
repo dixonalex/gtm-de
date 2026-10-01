@@ -135,7 +135,7 @@
 
 <section class="block" id="commentary">
 	<h2>What moved, and why</h2>
-	<table>
+	<table class="commentary">
 		<thead>
 			<tr>
 				<th>Variance</th>

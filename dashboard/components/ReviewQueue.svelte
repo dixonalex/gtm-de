@@ -4,7 +4,7 @@
 	export let rows = [];
 
 	function meta(account) {
-		return [account.domain, account.country, account.id].filter(Boolean).join(" · ");
+		return [account.domain, account.country].filter(Boolean).join(" · ");
 	}
 </script>
 
@@ -20,11 +20,11 @@
 		<article class:decided={row.decision && row.decision !== "pending"}>
 			<div>
 				<div class="name">{row.left.name}</div>
-				<div class="meta">{meta(row.left)}</div>
+				<div class="meta">{meta(row.left)}{#if row.left.id}<span class="id">{meta(row.left) ? ` · ${row.left.id}` : row.left.id}</span>{/if}</div>
 			</div>
 			<div>
 				<div class="name">{row.right.name}</div>
-				<div class="meta">{meta(row.right)}</div>
+				<div class="meta">{meta(row.right)}{#if row.right.id}<span class="id">{meta(row.right) ? ` · ${row.right.id}` : row.right.id}</span>{/if}</div>
 			</div>
 			<div class="signals">
 				{#if row.forSignals}<p><span>For</span> {row.forSignals}</p>{/if}
@@ -114,5 +114,18 @@
 		font-weight: 500;
 		cursor: pointer;
 		text-decoration: none;
+	}
+	@media (max-width: 640px) {
+		.head { display: none; }
+		.head, article {
+			grid-template-columns: 1fr;
+			gap: 8px;
+		}
+		.stake, .decision { text-align: left; }
+		a, button {
+			display: inline-flex;
+			align-items: center;
+			min-height: 44px;
+		}
 	}
 </style>

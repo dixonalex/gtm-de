@@ -85,4 +85,7 @@
 		color: var(--color-ink-muted);
 		margin-bottom: 4px;
 	}
+	@media (max-width: 640px) {
+		.grid { grid-template-columns: 1fr !important; }
+	}
 </style>

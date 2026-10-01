@@ -1,5 +1,7 @@
 <script>
 	import { onMount } from "svelte";
+	import { capMobileAxes } from "./chartTheme.js";
+	import { mobileNow } from "./narrow.js";
 
 	export let option;
 	export let height = 280;
@@ -8,12 +10,21 @@
 	let chart;
 	let ready = false;
 
+	function shown(next) {
+		return mobileNow() ? capMobileAxes(next) : next;
+	}
+
 	onMount(async () => {
 		const echarts = await import("echarts");
-		chart = echarts.init(el, null, { renderer: "canvas" });
-		chart.setOption(option);
+		const renderer = mobileNow() ? "svg" : "canvas";
+		chart = echarts.init(el, null, { renderer });
+		chart.setOption(shown(option));
 		ready = true;
-		const observer = new ResizeObserver(() => chart && chart.resize());
+		const observer = new ResizeObserver(() => {
+			if (!chart) return;
+			chart.resize();
+			if (option) chart.setOption(shown(option), true);
+		});
 		observer.observe(el);
 		return () => {
 			observer.disconnect();
@@ -22,7 +33,7 @@
 		};
 	});
 
-	$: if (ready && chart && option) chart.setOption(option, true);
+	$: if (ready && chart && option) chart.setOption(shown(option), true);
 </script>
 
 <div class="canvas" bind:this={el} style="height: {height}px"></div>

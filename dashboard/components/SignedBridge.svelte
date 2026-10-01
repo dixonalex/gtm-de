@@ -1,11 +1,20 @@
 <script>
+	import { onMount } from "svelte";
 	import ChartCanvas from "./ChartCanvas.svelte";
 	import { axisMoney, money } from "./format.js";
-	import { CONTEXT, FOCUS, INK, MUTED, UNFAVORABLE, axis, axisWindow, text, valueAxisTicks } from "./chartTheme.js";
+	import { CONTEXT, FOCUS, INK, MUTED, UNFAVORABLE, axis, axisWindow, chartWidth, shortenCategory, text, valueAxisTicks } from "./chartTheme.js";
+	import { mobileNow, trackNarrow } from "./narrow.js";
 
 	export let steps = [];
 	export let zeroBased = false;
 	export let wrapAxis = false;
+
+	let narrow = mobileNow();
+	let layoutTick = 0;
+	onMount(() => trackNarrow((value) => {
+		narrow = value;
+		layoutTick += 1;
+	}));
 
 	const WRAPPED = {
 		Expansion: "Expan-\nsion",
@@ -14,12 +23,22 @@
 	};
 
 	function tick(label) {
-		if (!wrapAxis) return label;
-		return WRAPPED[label] || label;
+		if (!narrow && wrapAxis) return WRAPPED[label] || label;
+		if (!narrow) return label;
+		const slot = (chartWidth() - 72) / Math.max(steps.length, 1);
+		return shortenCategory(label, slot - 2);
 	}
 	export let height = 320;
 
 	const BAR_W = 36;
+
+	$: barW = (() => {
+		void layoutTick;
+		if (!narrow) return BAR_W;
+		const plot = Math.max(120, chartWidth() - 72);
+		const slot = plot / Math.max(steps.length, 1);
+		return Math.max(10, Math.min(BAR_W, Math.floor(slot * 0.55)));
+	})();
 
 	function isFlat(step) {
 		return step.role !== "open" && step.role !== "close" && Number(step.value) === 0;
@@ -134,7 +153,7 @@
 			{
 				type: "bar",
 				stack: "bridge",
-				barWidth: BAR_W,
+				barWidth: barW,
 				data: built.bases,
 				itemStyle: { color: "transparent" },
 				emphasis: { disabled: true },
@@ -143,7 +162,7 @@
 			{
 				type: "bar",
 				stack: "bridge",
-				barWidth: BAR_W,
+				barWidth: barW,
 				data: steps.map((step, i) => ({
 					value: built.fades[i],
 					itemStyle: {
@@ -159,7 +178,7 @@
 			{
 				type: "bar",
 				stack: "bridge",
-				barWidth: BAR_W,
+				barWidth: barW,
 				data: steps.map((step, i) => {
 					const below = step.role !== "open" && step.role !== "close" && Number(step.value) < 0;
 					const anchor = step.role === "open" || step.role === "close";
@@ -197,7 +216,7 @@
 					const y = api.value(2);
 					const from = api.coord([api.value(0), y]);
 					const to = api.coord([api.value(1), y]);
-					const half = BAR_W / 2;
+					const half = barW / 2;
 					return {
 						type: "line",
 						shape: {

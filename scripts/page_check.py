@@ -89,10 +89,22 @@ def headless_requested() -> bool:
     return "--headless" in sys.argv[1:] or bool(os.environ.get("CI"))
 
 
-def live_pages(serve_root: Path, public_url: str, base_path: str = "") -> list[str]:
+def live_pages(
+    serve_root: Path,
+    public_url: str,
+    base_path: str = "",
+    *,
+    viewport: tuple[int, int] = (1440, 900),
+    mobile: bool = False,
+) -> list[str]:
     """Serve a static build and exercise every page in Chrome."""
     port = public_url.rsplit(":", 1)[-1].split("/", 1)[0]
-    debug = "9224" if base_path else "9223"
+    if mobile:
+        debug = "9225"
+    elif base_path:
+        debug = "9224"
+    else:
+        debug = "9223"
     headless = headless_requested()
     server = subprocess.Popen(
         [sys.executable, "-m", "http.server", port, "--bind", "127.0.0.1"],
@@ -101,14 +113,15 @@ def live_pages(serve_root: Path, public_url: str, base_path: str = "") -> list[s
         stderr=subprocess.DEVNULL,
     )
     chrome = chrome_executable()
-    profile = Path("/tmp/gtm-page-check-chrome") / (base_path.strip("/") or "root")
+    profile = Path("/tmp/gtm-page-check-chrome") / ("mobile" if mobile else base_path.strip("/") or "root")
+    width, height = viewport
     command = [
         chrome,
         f"--user-data-dir={profile}",
         "--disable-gpu",
         "--no-first-run",
         f"--remote-debugging-port={debug}",
-        "--window-size=1440,900",
+        f"--window-size={width},{height}",
     ]
     if headless:
         # GitHub-hosted runners start Chrome as root, which refuses the sandbox.
@@ -124,6 +137,8 @@ def live_pages(serve_root: Path, public_url: str, base_path: str = "") -> list[s
     argv = [str(node), str(script), debug, public_url, str(NUMBERS)]
     if base_path:
         argv.append(base_path)
+    if mobile:
+        argv.append("--mobile")
     try:
         result = subprocess.run(
             argv,
@@ -137,7 +152,7 @@ def live_pages(serve_root: Path, public_url: str, base_path: str = "") -> list[s
         server.terminate()
         browser.wait(timeout=5)
         server.wait(timeout=5)
-    label = base_path or "/"
+    label = ("mobile " if mobile else "") + (base_path or "/")
     if result.returncode != 0:
         print(f"live pages failed ({label})", file=sys.stderr)
         print((result.stderr or result.stdout)[-2000:], file=sys.stderr)
@@ -295,6 +310,7 @@ def main() -> int:
     dashboard_build(env, None)
     missing += static_pages(BUILD)
     missing += live_pages(BUILD, "http://127.0.0.1:8765")
+    missing += live_pages(BUILD, "http://127.0.0.1:8767", viewport=(390, 844), mobile=True)
     dashboard_build(env, PAGES_BASE)
     pages_build = BUILD / PAGES_BASE.strip("/")
     missing += static_pages(pages_build, PAGES_BASE)

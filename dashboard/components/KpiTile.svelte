@@ -68,4 +68,11 @@
 		color: var(--color-ink-muted);
 		min-height: 1.3em;
 	}
+	@media (max-width: 640px) {
+		.tile { padding-top: 10px; }
+		.label { margin-bottom: 4px; }
+		.value { font-size: 28px; }
+		.verdict { font-size: 13px; margin-top: 4px; }
+		.context { font-size: 13px; margin-top: 2px; }
+	}
 </style>

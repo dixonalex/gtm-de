@@ -51,7 +51,7 @@ Full system: [docs/design](docs/design/README.md) · [PDF](docs/design/design-sy
 - dbt and DuckDB model it into facts and one rollup table per page. Rates are calculated in SQL so the dashboard only filters.
 - The dashboard is Evidence, deployed to GitHub Pages as a static site.
 - 333 dbt tests and freshness checks. Two failures are planted on purpose (stale Stripe sync, JPY tie-out) and show up on the Finance and Data health pages.
-- CI checks the numbers on every page against a spec and loads each page in a headless browser.
+- CI checks the numbers on every page against a spec and loads each page in a headless browser, at desktop width and at 390×844.
 
 
 ## If this were going to production
@@ -110,7 +110,7 @@ To run the checks CI runs:
     make story-check
     make page-check
 
-`story-check` compares the numbers against the [story contract](docs/design/story-contract.md). `page-check` builds the dashboard and loads all five pages in a browser.
+`story-check` compares the numbers against the [story contract](docs/design/story-contract.md). `page-check` builds the dashboard and loads all five pages in a browser at desktop width and at 390×844.
 
 ---
 

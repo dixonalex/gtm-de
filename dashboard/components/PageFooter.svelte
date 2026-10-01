@@ -70,4 +70,11 @@
 		font-size: 12px;
 		color: var(--color-context);
 	}
+	@media (max-width: 640px) {
+		.defs a {
+			display: inline-flex;
+			align-items: center;
+			min-height: 44px;
+		}
+	}
 </style>

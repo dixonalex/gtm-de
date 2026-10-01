@@ -29,7 +29,7 @@
 	}
 </script>
 
-<table>
+<table class="spark">
 	<thead>
 		<tr>
 			<th>{nameHeader}</th>
@@ -107,5 +107,18 @@
 	}
 	th.num {
 		text-align: right;
+	}
+	@media (max-width: 640px) {
+		table, thead, tbody, tr, th, td { display: block; width: auto; }
+		thead { display: none; }
+		tr {
+			display: flex;
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 4px;
+			padding: 12px 0;
+		}
+		td { border: 0; padding: 0; }
+		.latest, th.num { text-align: left; }
 	}
 </style>

@@ -1,7 +1,16 @@
 <script>
+	import { onMount } from "svelte";
 	import ChartCanvas from "./ChartCanvas.svelte";
 	import { axisMoney, money } from "./format.js";
-	import { CONTEXT, FOCUS, INK, MUTED, RULE, axisWindow, valueAxisTicks } from "./chartTheme.js";
+	import { CONTEXT, FOCUS, INK, MUTED, RULE, axisWindow, fitDirectLabel, measureText, valueAxisTicks } from "./chartTheme.js";
+	import { mobileNow, trackNarrow } from "./narrow.js";
+
+	let narrow = mobileNow();
+	let layoutTick = 0;
+	onMount(() => trackNarrow((value) => {
+		narrow = value;
+		layoutTick += 1;
+	}));
 
 	export let labels = [];
 	export let commit = [];
@@ -25,8 +34,22 @@
 	})();
 	$: last = Math.max(commit.length - 1, 0);
 
+	function named(prefix, value) {
+		const text = money(value);
+		const full = `${prefix} ${text}`;
+		return narrow ? fitDirectLabel(full, text, '600 12px "IBM Plex Sans", sans-serif') : full;
+	}
+
+	$: gutter = (() => {
+		void layoutTick;
+		if (!narrow) return 132;
+		const labels = [named("Commit", commit[last]), named("Best case", bestCase[last])];
+		const widest = Math.max(48, ...labels.map((text) => measureText(text, '600 12px "IBM Plex Sans", sans-serif')));
+		return Math.ceil(widest + 24);
+	})();
+
 	$: option = {
-		grid: { left: 64, right: 132, top: 28, bottom: 28 },
+		grid: { left: narrow ? 48 : 64, right: gutter, top: 28, bottom: 28 },
 		xAxis: {
 			type: "category",
 			data: labels,
@@ -36,7 +59,9 @@
 				color: MUTED,
 				fontFamily: "IBM Plex Sans Condensed, sans-serif",
 				fontSize: 12,
-				interval: 0,
+				interval: narrow
+					? (index) => index % Math.max(1, Math.ceil(labels.length / 4)) === 0 || index === labels.length - 1
+					: 0,
 			},
 			splitLine: { show: false },
 		},
@@ -56,7 +81,9 @@
 						{
 							yAxis: quota,
 							label: {
-								formatter: `Quota ${money(quota)}`,
+								formatter: narrow
+									? fitDirectLabel(`Quota ${money(quota)}`, money(quota), '400 12px "IBM Plex Sans", sans-serif')
+									: `Quota ${money(quota)}`,
 								position: "insideEndTop",
 								color: CONTEXT,
 								fontSize: 12,
@@ -93,7 +120,7 @@
 								style: {
 									x,
 									y: commitAt[1],
-									text: `Commit ${money(commit[last])}`,
+									text: named("Commit", commit[last]),
 									fill: INK,
 									fontSize: 12,
 									fontWeight: 600,
@@ -106,7 +133,7 @@
 								style: {
 									x,
 									y: bestAt[1],
-									text: `Best case ${money(bestCase[last])}`,
+									text: named("Best case", bestCase[last]),
 									fill: MUTED,
 									fontSize: 12,
 									fontFamily: "IBM Plex Sans, sans-serif",

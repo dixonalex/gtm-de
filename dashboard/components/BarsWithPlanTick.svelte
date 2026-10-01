@@ -1,7 +1,16 @@
 <script>
+	import { onMount } from "svelte";
 	import ChartCanvas from "./ChartCanvas.svelte";
 	import { money, percent, verdict } from "./format.js";
-	import { FAVORABLE, FOCUS, INK, MUTED, UNFAVORABLE, axis, axisWindow, text } from "./chartTheme.js";
+	import { FAVORABLE, FOCUS, INK, MUTED, UNFAVORABLE, axis, axisWindow, fitDirectLabel, measureText, text } from "./chartTheme.js";
+	import { mobileNow, trackNarrow } from "./narrow.js";
+
+	let narrow = mobileNow();
+	let layoutTick = 0;
+	onMount(() => trackNarrow((value) => {
+		narrow = value;
+		layoutTick += 1;
+	}));
 
 	export let rows = [];
 	export let band = "flow";
@@ -10,11 +19,27 @@
 
 	$: peak = Math.max(1, ...rows.map((row) => Math.max(row.value || 0, row.plan || 0)));
 	$: scale = axisWindow(0, peak, { zero: true });
+
+	function barLabel(row) {
+		const value = money(row.value);
+		const delta = row.value - row.plan;
+		const share = row.plan ? row.value / row.plan : null;
+		const full = `${value} · ${money(delta, { signed: true })} · ${percent(share)} of plan`;
+		return narrow ? fitDirectLabel(full, value, '400 12px "IBM Plex Sans", sans-serif', { left: 36, plotShare: 0.4 }) : full;
+	}
+
+	$: gutter = (() => {
+		void layoutTick;
+		if (!narrow) return 228;
+		const widest = Math.max(48, ...rows.map((row) => measureText(barLabel(row), '600 12px "IBM Plex Sans", sans-serif')));
+		return Math.ceil(widest + 16);
+	})();
+
 	$: option = {
 		animation: false,
 		textStyle: text,
 		legend: { show: false },
-		grid: { left: 8, right: 228, top: 8, bottom: 8, containLabel: true },
+		grid: { left: 8, right: gutter, top: 8, bottom: 8, containLabel: true },
 		xAxis: {
 			type: "value",
 			min: 0,
@@ -46,8 +71,6 @@
 				labelLayout: { hideOverlap: false },
 				data: rows.map((row) => {
 					const tone = verdict(row.value, row.plan, band, higherIsBetter);
-					const delta = row.value - row.plan;
-					const share = row.plan ? row.value / row.plan : null;
 					const color = row.current
 						? FOCUS
 						: tone.state === "unfavorable"
@@ -66,8 +89,7 @@
 							fontSize: 12,
 							fontWeight: row.current ? 600 : 400,
 							fontFamily: "IBM Plex Sans, sans-serif",
-							formatter: () =>
-								`${money(row.value)} · ${money(delta, { signed: true })} · ${percent(share)} of plan`,
+							formatter: () => barLabel(row),
 						},
 					};
 				}),

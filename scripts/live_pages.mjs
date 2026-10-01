@@ -7,7 +7,9 @@ import { readFileSync } from "node:fs";
 const debugPort = process.argv[2];
 const base = process.argv[3];
 const numbers = JSON.parse(readFileSync(process.argv[4], "utf8"));
-const basePath = process.argv[5] || "";
+const extra = process.argv.slice(5);
+const mobile = extra.includes("--mobile");
+const basePath = extra.find((arg) => !arg.startsWith("--")) || "";
 const failures = [];
 const bad = [];
 const dataFetches = [];
@@ -277,8 +279,107 @@ const companyWon = money(numbers.sales.won_qtd);
 const owner = numbers.deal_desk.open_items[0].owner;
 const companyBookings = money(numbers.finance.bookings);
 
+async function runMobile() {
+	await send("Emulation.setDeviceMetricsOverride", {
+		width: 390,
+		height: 844,
+		deviceScaleFactor: 1,
+		mobile: true,
+	});
+	const routes = [
+		["/", "Revenue review", true],
+		["/sales/", "Pipeline and forecast", false],
+		["/deal-desk/", "Quote-to-cash exceptions", false],
+		["/finance/", "Bookings to billings", false],
+		["/data-health/", "Pipeline and tests", false],
+	];
+	const audit = `(() => {
+		const viewW = window.innerWidth;
+		const viewH = window.innerHeight;
+		const problems = [];
+		if (document.documentElement.scrollWidth > viewW) {
+			const wide = [...document.querySelectorAll("body *")]
+				.map((el) => {
+					const box = el.getBoundingClientRect();
+					return {
+						tag: el.tagName,
+						cls: String(el.className || "").slice(0, 60),
+						right: Math.round(box.right),
+					};
+				})
+				.filter((item) => item.right > viewW + 1)
+				.slice(0, 6);
+			problems.push("horizontal overflow " + document.documentElement.scrollWidth + ">" + viewW + " " + JSON.stringify(wide));
+		}
+		const charts = [...document.querySelectorAll(".canvas")];
+		if (charts.some((node) => !node.querySelector("svg"))) problems.push("chart is not svg");
+		for (const svg of document.querySelectorAll(".canvas svg")) {
+			const svgBox = svg.getBoundingClientRect();
+			const texts = [...svg.querySelectorAll("text")].filter((node) => (node.textContent || "").trim());
+			for (const text of texts) {
+				const tb = text.getBoundingClientRect();
+				if (tb.width < 1 || tb.height < 1) continue;
+				for (const shape of svg.querySelectorAll("path, rect, circle, line")) {
+					const mb = shape.getBoundingClientRect();
+					if (mb.width < 1 || mb.height < 1) continue;
+					const fill = shape.getAttribute("fill") || "";
+					const stroke = shape.getAttribute("stroke") || "";
+					if (/transparent|rgba\\([^)]*,\\s*0\\)/.test(fill) || fill === "none") {
+						if (!stroke || stroke === "none" || stroke === "transparent") continue;
+					}
+					const slop = 14;
+					const glyph = Math.abs(mb.left - tb.left) < slop && Math.abs(mb.top - tb.top) < slop
+						&& Math.abs(mb.right - tb.right) < slop && Math.abs(mb.bottom - tb.bottom) < slop;
+					if (glyph) continue;
+					const wide = mb.width > svgBox.width * 0.35;
+					const tall = mb.height > svgBox.height * 0.25;
+					if (wide && tall) continue;
+					if (wide && mb.height <= 3) continue;
+					if (tall && mb.width <= 3) continue;
+					const ix = Math.min(tb.right, mb.right) - Math.max(tb.left, mb.left);
+					const iy = Math.min(tb.bottom, mb.bottom) - Math.max(tb.top, mb.top);
+					if (ix > 2 && iy > 2) {
+						problems.push('overlap "' + text.textContent.trim().slice(0, 40) + '"');
+						break;
+					}
+				}
+			}
+		}
+		if (window.__kpiCheck) {
+			const tiles = [...document.querySelectorAll("[data-kpi]")].slice(0, 4);
+			if (tiles.length < 4) problems.push("expected 4 kpi tiles");
+			for (const tile of tiles) {
+				const box = tile.getBoundingClientRect();
+				if (box.top < -0.5 || box.bottom > viewH + 0.5) {
+					problems.push("kpi " + tile.getAttribute("data-kpi") + " " + Math.round(box.top) + "-" + Math.round(box.bottom) + " outside " + viewH);
+				}
+			}
+		}
+		return problems.join(" || ");
+	})()`;
+	for (const [path, marker, kpis] of routes) {
+		await send("Page.navigate", { url: `${base}${path}` });
+		await waitFor(`document.body.innerText`, (text) => text.includes(marker), `${marker} mobile`);
+		await waitFor(
+			`(() => {
+				const charts = [...document.querySelectorAll(".canvas")];
+				if (!charts.length) return "ready";
+				return charts.every((node) => node.querySelector("svg")) ? "ready" : "";
+			})()`,
+			(text) => text === "ready",
+			`${marker} charts`,
+		);
+		await evaluate(`window.scrollTo(0,0); window.__kpiCheck = ${kpis ? "true" : "false"}; "ok"`);
+		const found = String(await evaluate(audit));
+		if (found) failures.push(`${marker}: ${found}`);
+	}
+}
+
 try {
 	await connect("about:blank");
+	if (mobile) {
+		await runMobile();
+	} else {
 	await navigateWatch(`${base}/`, tile("Committed ARR"), (text) => text.includes(companyArr), "default executive ARR");
 	await waitFor(
 		`document.body.innerText`,
@@ -372,6 +473,7 @@ try {
 		(text) => text.includes("severity=WARN"),
 		"data health URL after Warn",
 	);
+	}
 } catch (error) {
 	failures.push(String(error?.stack || error));
 }
@@ -382,5 +484,5 @@ if (failures.length) {
 	console.error(failures.join("\n"));
 	process.exit(1);
 }
-console.log("live pages passed");
+console.log(mobile ? "mobile pages passed" : "live pages passed");
 ws?.close();

@@ -74,7 +74,7 @@
 		{/if}
 		<p class="links">
 			<button type="button" on:click={copyLink}>{copied ? "Link copied" : copyLabel}</button>
-			<button type="button" on:click={exportCsv}>{exportLabel}</button>
+			<button type="button" class="export" on:click={exportCsv}>{exportLabel}</button>
 		</p>
 	</aside>
 </header>
@@ -174,5 +174,58 @@
 		.sources {
 			align-items: flex-start;
 		}
+	}
+	@media (max-width: 640px) {
+		.header {
+			display: flex;
+			flex-direction: column;
+			align-items: stretch;
+			gap: 8px;
+			margin-bottom: 16px;
+			padding-bottom: 12px;
+		}
+		.titles,
+		aside {
+			display: contents;
+		}
+		.eyebrow { order: 1; }
+		h1 {
+			order: 2;
+			font-size: 32px;
+			line-height: 38px;
+		}
+		.sources,
+		.asof,
+		.note { order: 3; }
+		.controls {
+			order: 4;
+			margin-top: 4px;
+			max-width: 100%;
+		}
+		.links { order: 5; }
+		.sources {
+			flex-direction: row;
+			flex-wrap: wrap;
+			align-items: center;
+			justify-content: flex-start;
+			gap: 4px 14px;
+			min-width: 0;
+			max-width: 100%;
+		}
+		.fresh {
+			white-space: nowrap;
+			text-align: left;
+		}
+		.asof,
+		.note,
+		.links {
+			text-align: left;
+		}
+		.links button {
+			display: inline-flex;
+			align-items: center;
+			min-height: 44px;
+		}
+		.links button.export { display: none; }
 	}
 </style>

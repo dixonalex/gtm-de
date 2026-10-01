@@ -16,4 +16,15 @@
 	.marker sup {
 		line-height: 0;
 	}
+	@media (max-width: 640px) {
+		.marker {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			min-width: 44px;
+			min-height: 44px;
+			margin: -14px -10px;
+			vertical-align: middle;
+		}
+	}
 </style>

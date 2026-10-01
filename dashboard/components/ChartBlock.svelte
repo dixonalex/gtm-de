@@ -57,4 +57,15 @@
 		font-size: 13px;
 		color: var(--color-ink-muted);
 	}
+	@media (max-width: 640px) {
+		.head {
+			flex-wrap: wrap;
+			align-items: flex-start;
+		}
+		.sub a {
+			display: inline-flex;
+			align-items: center;
+			min-height: 44px;
+		}
+	}
 </style>

@@ -130,4 +130,9 @@
 		margin: 8px 0 0;
 		font-size: 14px;
 	}
+	@media (max-width: 640px) {
+		.bullet:not(.compact) { padding-top: 10px; }
+		.value { font-size: 28px; margin-bottom: 8px; }
+		.line { font-size: 13px; }
+	}
 </style>

@@ -1,5 +1,6 @@
 <script>
 	import { browser } from "$app/environment";
+	import { afterUpdate, tick } from "svelte";
 	import { base } from "$app/paths";
 	import { EvidenceDefaultLayout } from "@evidence-dev/core-components";
 	import { showQueries } from "@evidence-dev/component-utilities/stores";
@@ -54,9 +55,34 @@
 	}
 
 	$: path = appPath($page.url.pathname);
+
+	function revealTab() {
+		if (!browser || window.innerWidth > 640) return;
+		const current = document.querySelector('nav.gtm-tabs [aria-current="page"]');
+		const scroller = current?.parentElement;
+		if (!current || !scroller) return;
+		const left = current.offsetLeft - (scroller.clientWidth - current.offsetWidth) / 2;
+		scroller.scrollTo({ left: Math.max(0, left) });
+	}
+
+	function wrapTables() {
+		if (!browser || window.innerWidth > 640) return;
+		document.querySelectorAll(".gtm-frame table").forEach((table) => {
+			if (table.closest(".table-scroll")) return;
+			if (table.classList.contains("commentary") || table.classList.contains("spark")) return;
+			const wrap = document.createElement("div");
+			wrap.className = "table-scroll";
+			table.parentNode.insertBefore(wrap, table);
+			wrap.appendChild(table);
+		});
+	}
+
+	$: if (browser && path) tick().then(revealTab);
+	afterUpdate(wrapTables);
 </script>
 
 <svelte:head>
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
 	<link
