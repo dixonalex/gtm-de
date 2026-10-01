@@ -1,0 +1,55 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      GTM_DATA_DIR: ${{ github.workspace }}/data
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+
+      - run: uv sync --frozen
+
+      - run: uv run python generator/generate.py
+
+      - name: dbt deps
+        working-directory: dbt
+        run: uv run --project ${{ github.workspace }} dbt deps --profiles-dir .
+
+      - name: dbt build
+        working-directory: dbt
+        run: uv run --project ${{ github.workspace }} dbt build --profiles-dir .
+
+      - name: Export eval tables
+        working-directory: dbt
+        run: |
+          uv run --project ${{ github.workspace }} python -c "
+          import duckdb
+          con = duckdb.connect('gtm.duckdb', read_only=True)
+          con.execute(\"copy eval.eval_match_quality to 'eval_match_quality.csv' (header, delimiter ',')\")
+          con.execute(\"copy eval.eval_match_misses to 'eval_match_misses.csv' (header, delimiter ',')\")
+          con.close()
+          "
+
+      - name: dbt source freshness
+        working-directory: dbt
+        run: uv run --project ${{ github.workspace }} dbt source freshness --profiles-dir .
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dbt-artifacts
+          if-no-files-found: warn
+          path: |
+            dbt/target/run_results.json
+            dbt/target/sources.json
+            dbt/eval_match_quality.csv
+            dbt/eval_match_misses.csv

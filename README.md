@@ -1,5 +1,7 @@
 # Quickstart
 
+[![CI](https://github.com/bluelight-dixon/gtm-de/actions/workflows/ci.yml/badge.svg)](https://github.com/bluelight-dixon/gtm-de/actions/workflows/ci.yml)
+
 Prerequisites: [uv](https://docs.astral.sh/uv/) and the DuckDB CLI.
 
 ```bash
