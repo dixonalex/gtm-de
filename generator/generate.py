@@ -715,7 +715,7 @@ class Gen:
         mess = self.cfg["mess"]
         step = {"Annual": 12, "Quarterly": 3, "Monthly": 1}
         for o in self.rows("order"):
-            if o["IsReductionOrder"] or o["Status"] == "Draft":
+            if o["IsReductionOrder"] or o["Status"] == "Draft" or o.get("_skip_billing"):
                 continue
             acct, cur = o["_acct"], o["CurrencyIsoCode"]
             cust = self.customer_for(acct)

@@ -6,7 +6,7 @@
 	import PageFooter from "./PageFooter.svelte";
 	import PageHeader from "./PageHeader.svelte";
 	import SlipTable from "./SlipTable.svelte";
-	import { asRows, monthLabel, onlyLabel } from "./format.js";
+	import { asRows, monthLabel, onlyLabel, present } from "./format.js";
 
 	export let kpi = [];
 	export let segments = [];
@@ -22,9 +22,10 @@
 	}
 
 	$: row = asRows(kpi)[0] || {};
-	$: call = asRows(forecast);
+	$: ready = present(row);
+	$: call = ready ? asRows(forecast) : [];
 	$: last = call[call.length - 1] || {};
-	$: sliceText = onlyLabel([row.segment, row.team, row.rep]);
+	$: sliceText = ready ? onlyLabel([row.segment, row.team, row.rep]) || "Company" : "";
 	$: sources = asRows(freshness)
 		.slice()
 		.sort((a, b) => (a.connector_id === "salesforce" ? -1 : 1))
@@ -49,35 +50,37 @@
 </PageHeader>
 
 <div class="kpi-row three">
-	<BulletKpi label="Won QTD" value={row.won_usd} quota={row.quota_usd} bandPts={5} />
-	<BulletKpi label="Commit" value={row.commit_usd} quota={row.quota_usd} bandPts={5} />
-	<BulletKpi label="Best case" value={last.best_case_usd} quota={row.quota_usd} bandPts={5} />
+	<BulletKpi label="Won QTD" value={ready ? row.won_usd : null} quota={ready ? row.quota_usd : null} bandPts={5} />
+	<BulletKpi label="Commit" value={ready ? row.commit_usd : null} quota={ready ? row.quota_usd : null} bandPts={5} />
+	<BulletKpi label="Best case" value={ready ? last.best_case_usd : null} quota={ready ? row.quota_usd : null} bandPts={5} />
 </div>
 
-<ChartBlock title="Forecast call by week vs quota" subtitle={sliceText || "Company"}>
+<ChartBlock title="Forecast call by week vs quota" subtitle={sliceText}>
+	{#if ready}
 	<ForecastCall
 		labels={call.map((item) => `W${item.week_index}`)}
 		commit={call.map((item) => Number(item.commit_usd))}
 		bestCase={call.map((item) => Number(item.best_case_usd))}
 		quota={Number(row.quota_usd)}
 	/>
+	{/if}
 </ChartBlock>
 
 <div class="two-up even">
-	<ChartBlock title="Commit vs quota by segment, Q3" subtitle={sliceText || "Q3 FY26"}>
+	<ChartBlock title="Commit vs quota by segment, Q3" subtitle={ready ? sliceText || "Q3 FY26" : ""}>
 		{#each asRows(segments) as item}
 			<div class="attain">
 				<BulletKpi compact label={item.segment} value={item.commit_usd} quota={item.quota_usd} bandPts={5} />
 			</div>
 		{/each}
 	</ChartBlock>
-	<ChartBlock title="Bookings vs plan by month" subtitle={sliceText || "FY26 closed months"}>
+	<ChartBlock title="Bookings vs plan by month" subtitle={ready ? sliceText || "FY26 closed months" : ""}>
 		<BarsWithPlanTick rows={bars} />
 	</ChartBlock>
 </div>
 
 <section id="slips">
-	<ChartBlock title="Deals slipped out of Q3 this week" subtitle={sliceText || "Q3 FY26"}>
+	<ChartBlock title="Deals slipped out of Q3 this week" subtitle={ready ? sliceText || "Q3 FY26" : ""}>
 		<SlipTable rows={asRows(slips)} />
 	</ChartBlock>
 </section>

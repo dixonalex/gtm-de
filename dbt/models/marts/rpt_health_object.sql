@@ -48,7 +48,11 @@ select
     t.pass_count,
     t.test_count,
     case
-        when p.object_kind = 'source' then strftime(f.last_successful_sync, '%H:%M') || ' UTC'
+        when p.object_kind = 'source' and cast(f.last_successful_sync as date) = {{ as_of_date() }}
+            then strftime(f.last_successful_sync, '%H:%M') || ' UTC'
+        when p.object_kind = 'source'
+            then cast(day(f.last_successful_sync) as varchar) || ' '
+                || strftime(f.last_successful_sync, '%b %H:%M') || ' UTC'
         when h.status = 'ERROR' then null
         else '16:52 UTC'
     end as last_success,

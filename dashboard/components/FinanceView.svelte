@@ -7,7 +7,7 @@
 	import SignedBridge from "./SignedBridge.svelte";
 	import SparklineTable from "./SparklineTable.svelte";
 	import StatusChip from "./StatusChip.svelte";
-	import { asRows, count, dayLabel, days, localMoney, money, monthLabel, onlyLabel, percent } from "./format.js";
+	import { asRows, count, dayLabel, days, localMoney, money, monthLabel, onlyLabel, percent, present } from "./format.js";
 
 	export let kpi = [];
 	export let currencies = [];
@@ -30,8 +30,9 @@
 	}
 
 	$: row = asRows(kpi)[0] || {};
-	$: period = monthLabel(row.month_end);
-	$: sliceText = onlyLabel([row.currency, row.segment]);
+	$: ready = present(row);
+	$: period = ready ? monthLabel(row.month_end) : "";
+	$: sliceText = ready ? onlyLabel([row.currency, row.segment]) || "Company" : "";
 	$: sources = asRows(freshness)
 		.slice()
 		.sort((a, b) => (a.connector_id === "salesforce" ? -1 : 1))
@@ -87,19 +88,19 @@
 </PageHeader>
 
 <div class="kpi-row">
-	<KpiTile label="Bookings" period={period} value={row.bookings_usd} plan={row.bookings_plan_usd} prior={row.prior_bookings_usd} priorLabel="Jul 2026" />
-	<KpiTile label="Billings" period={period} value={row.billings_usd} prior={row.prior_billings_usd} priorLabel="Jul 2026" caveat={1} />
-	<KpiTile label="Booked not billed" period="month-end" value={row.booked_not_billed_usd} prior={row.prior_booked_not_billed_usd} priorLabel="Jul 2026" context={`${count(row.bnb_orders)} orders · ${count(row.bnb_past_sla)} past invoicing SLA`} />
+	<KpiTile label="Bookings" period={period} value={ready ? row.bookings_usd : null} plan={ready ? row.bookings_plan_usd : null} prior={ready ? row.prior_bookings_usd : null} priorLabel="Jul 2026" />
+	<KpiTile label="Billings" period={period} value={ready ? row.billings_usd : null} prior={ready ? row.prior_billings_usd : null} priorLabel="Jul 2026" caveat={1} />
+	<KpiTile label="Booked not billed" period={ready ? "month-end" : ""} value={ready ? row.booked_not_billed_usd : null} prior={ready ? row.prior_booked_not_billed_usd : null} priorLabel="Jul 2026" context={ready ? `${count(row.bnb_orders)} orders · ${count(row.bnb_past_sla)} past invoicing SLA` : ""} />
 	<KpiTile
 		label="Unmatched invoices"
-		value={row.unmatched_usd}
-		verdictText={`${percent(row.unmatched_share)} of billings · tolerance 1%`}
+		value={ready ? row.unmatched_usd : null}
+		verdictText={ready ? `${percent(row.unmatched_share)} of billings · tolerance 1%` : ""}
 		verdictColor={Number(row.unmatched_share) > 0.01 ? "var(--color-unfavorable)" : "var(--color-ink)"}
-		context={`${count(row.unmatched_invoices)} invoices · Jul: ${count(row.prior_unmatched_invoices)}`}
+		context={ready ? `${count(row.unmatched_invoices)} invoices · Jul: ${count(row.prior_unmatched_invoices)}` : ""}
 	/>
 </div>
 
-<ChartBlock title="Bookings to billings, {period.replace(/ \d{4}$/, '')}" subtitle={sliceText || "Company"}>
+<ChartBlock title="Bookings to billings, {period.replace(/ \d{4}$/, '')}" subtitle={sliceText}>
 	<div slot="toggle" class="inert" aria-label="Break down by">
 		<button type="button" class="on">None</button>
 		<button type="button">Currency</button>
@@ -140,7 +141,7 @@
 	<ChartBlock title="Receivables aging by bucket" subtitle="Mar–{period.slice(0, 3)}">
 		<SparklineTable rows={spark} nameHeader="Bucket" compareHeader="vs Mar" />
 	</ChartBlock>
-	<ChartBlock title="Usage commit burn vs straight line" subtitle={sliceText || "Annual commits active 1 Jan"}>
+	<ChartBlock title="Usage commit burn vs straight line" subtitle={ready ? sliceText || "Annual commits active 1 Jan" : ""}>
 		<ActualVsPlanLine
 			labels={burnRows.map((item) => monthLabel(item.month_end))}
 			actual={burnRows.map((item) => Number(item.share_consumed))}

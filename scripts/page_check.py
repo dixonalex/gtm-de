@@ -149,7 +149,7 @@ def main() -> int:
             money(ex["august_bridge"]["new"], signed=True),
             percent(ex["nrr"]),
             percent(ex["grr"]),
-            "No commentary yet",
+            "No commentary for the company yet",
             "Committed ARR vs plan, FY26",
             "Revenue review",
             "EXECUTIVE · MONTHLY",
@@ -158,13 +158,14 @@ def main() -> int:
         ],
         "executive",
     )
+    company_call = next(row for row in sales["calls"] if row["segment"] == "All")
     missing += require(
         pages["sales"],
         [
             money(sales["won_qtd"]),
             money(sales["quota"]),
-            money(sales["week_13_commit"]),
-            money(sales["week_13_best_case"]),
+            money(company_call["commit"]),
+            money(company_call["best_case"]),
             *[row["account"] for row in sales["slipped_deals"]],
             "Forecast call by week vs quota",
             "Pipeline and forecast",

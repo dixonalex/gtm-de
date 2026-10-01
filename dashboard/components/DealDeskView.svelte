@@ -4,7 +4,7 @@
 	import PageFooter from "./PageFooter.svelte";
 	import PageHeader from "./PageHeader.svelte";
 	import Worklist from "./Worklist.svelte";
-	import { asRows, count, money, onlyLabel } from "./format.js";
+	import { asRows, count, money, onlyLabel, present } from "./format.js";
 
 	export let kpi = [];
 	export let openRows = [];
@@ -49,7 +49,10 @@
 	}
 
 	$: row = asRows(kpi)[0] || {};
-	$: sliceText = onlyLabel([row.owner_name, LABELS[row.exception_type] || row.exception_type]);
+	$: ready = present(row);
+	$: sliceText = ready
+		? onlyLabel([row.owner_name, LABELS[row.exception_type] || row.exception_type]) || "Sorted by SLA breach, then amount"
+		: "";
 	$: sources = asRows(freshness)
 		.slice()
 		.sort((a, b) => (a.connector_id === "salesforce" ? -1 : 1))
@@ -69,10 +72,10 @@
 </PageHeader>
 
 <div class="kpi-row">
-	<KpiTile label="Past SLA" value={row.past_sla_count} plan={row.yesterday_past_sla_count} format="count" compareLabel="yesterday" higherIsBetter={false} context={`${money(row.past_sla_amount_usd)} at stake`} />
-	<KpiTile label="Breach SLA tomorrow" value={row.breach_tomorrow_count} plan={row.yesterday_breach_tomorrow_count} format="count" compareLabel="yesterday" higherIsBetter={false} context={`${money(row.breach_tomorrow_amount_usd)} at stake`} />
-	<KpiTile label="Open exceptions" value={row.open_count} plan={row.yesterday_open_count} format="count" compareLabel="yesterday" higherIsBetter={false} context={`${count(row.opened_count)} opened · ${count(row.resolved_today_count)} resolved`} />
-	<KpiTile label="USD at stake" value={row.open_amount_usd} plan={row.yesterday_open_amount_usd} compareLabel="yesterday" higherIsBetter={false} context={`${money(row.opened_amount_usd)} opened · ${money(row.resolved_today_amount_usd)} resolved`} />
+	<KpiTile label="Past SLA" value={ready ? row.past_sla_count : null} plan={ready ? row.yesterday_past_sla_count : null} format="count" compareLabel="yesterday" higherIsBetter={false} context={ready ? `${money(row.past_sla_amount_usd)} at stake` : ""} />
+	<KpiTile label="Breach SLA tomorrow" value={ready ? row.breach_tomorrow_count : null} plan={ready ? row.yesterday_breach_tomorrow_count : null} format="count" compareLabel="yesterday" higherIsBetter={false} context={ready ? `${money(row.breach_tomorrow_amount_usd)} at stake` : ""} />
+	<KpiTile label="Open exceptions" value={ready ? row.open_count : null} plan={ready ? row.yesterday_open_count : null} format="count" compareLabel="yesterday" higherIsBetter={false} context={ready ? `${count(row.opened_count)} opened · ${count(row.resolved_today_count)} resolved` : ""} />
+	<KpiTile label="USD at stake" value={ready ? row.open_amount_usd : null} plan={ready ? row.yesterday_open_amount_usd : null} compareLabel="yesterday" higherIsBetter={false} context={ready ? `${money(row.opened_amount_usd)} opened · ${money(row.resolved_today_amount_usd)} resolved` : ""} />
 </div>
 
 <section id="exceptions">

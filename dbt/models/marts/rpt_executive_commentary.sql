@@ -14,7 +14,8 @@ notes as (
         requested_on,
         due_on,
         requested_from,
-        commentary
+        commentary,
+        'All' as region
     from {{ ref('variance_commentary') }}
 ),
 
@@ -30,7 +31,8 @@ rows as (
         arr_plan_usd as plan_usd,
         'balance' as band,
         'committed_arr' as metric,
-        'All' as note_segment
+        'All' as note_segment,
+        'All' as note_region
     from base
     where segment = 'All' and region = 'All'
       and abs(committed_arr_usd - arr_plan_usd) / nullif(abs(arr_plan_usd), 0) > 0.01
@@ -48,6 +50,7 @@ rows as (
         arr_plan_usd,
         'balance',
         'committed_arr',
+        segment,
         'All'
     from base
     where segment != 'All' and region = 'All'
@@ -66,7 +69,8 @@ rows as (
         net_new_plan_usd,
         'flow',
         'net_new',
-        segment
+        segment,
+        'All'
     from base
     where segment != 'All' and region = 'All'
       and abs(net_new_usd - net_new_plan_usd) / nullif(abs(net_new_plan_usd), 0) > 0.05
@@ -84,7 +88,8 @@ rows as (
         net_new_plan_usd,
         'flow',
         'net_new',
-        segment
+        segment,
+        'All'
     from base
     where segment != 'All' and region = 'All'
       and abs(net_new_usd - net_new_plan_usd) / nullif(abs(net_new_plan_usd), 0) > 0.05
@@ -102,7 +107,8 @@ rows as (
         bookings_plan_usd,
         'flow',
         'bookings',
-        'All'
+        segment,
+        region
     from base
     where not (segment != 'All' and region != 'All')
 )
@@ -125,8 +131,11 @@ select
     n.requested_on,
     n.due_on,
     n.requested_from,
-    n.commentary
+    n.commentary,
+    r.note_segment,
+    r.note_region
 from rows r
 left join notes n
     on r.metric = n.metric
    and r.note_segment = n.segment
+   and r.note_region = n.region

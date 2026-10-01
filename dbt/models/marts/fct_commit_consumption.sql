@@ -44,6 +44,7 @@ used as (
        and c.end_date >= m.month_end
     left join {{ ref('stg_billing__usage_record_summary') }} u
         on u.metadata_salesforce_order_item_id = c.order_item_id
+       and u.period_end >= date '2026-01-01'
        and u.period_end <= m.month_end
     group by
         m.month_end, c.order_item_id, c.commit_qty, c.commit_usd, c.effective_date, c.end_date
@@ -55,15 +56,8 @@ select
     sum(commit_usd) as commit_usd,
     sum(commit_usd * used_qty / nullif(commit_qty, 0))
         / nullif(sum(commit_usd), 0) as share_consumed,
-    sum(
-        commit_usd * greatest(
-            0,
-            least(
-                1,
-                date_diff('day', effective_date, month_end)::double
-                    / nullif(date_diff('day', effective_date, end_date), 0)
-            )
-        )
-    ) / nullif(sum(commit_usd), 0) as straight_line
+    -- Annual commits already active on 1 Jan. Elapsed is the day of the year
+    -- over a 365-day term (31 Aug = 243/365), the same line on every commit.
+    (date_diff('day', date '2026-01-01', month_end) + 1) / 365.0 as straight_line
 from used
 group by month_end

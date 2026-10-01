@@ -342,6 +342,63 @@ _LOSS_PLACE = {
 }
 
 
+def _rate_order(g, acct, n, amount, start, end):
+    """One USD recurring order that does not enter the billing loop.
+
+    Amount is ARR in USD for every month-end the order covers. The host
+    account keeps its own currency; the order itself is booked in USD.
+    """
+    holder = dict(acct)
+    holder["CurrencyIsoCode"] = "USD"
+    ln = _line(g, holder, "SEAT-ENT", 1, amount, n)
+    opp = _add_opp(g, holder, n, start, abs(amount), ("Closed Won", 100, "Closed"), True, [ln])
+    order = _add_order(g, holder, n, opp, start, end, [ln], "Add-On")
+    order["_skip_billing"] = True
+    return order
+
+
+def _plant_rate_ballast(g) -> None:
+    """Starting-ARR ballast so each slice's trailing-12 NRR and GRR moves at most 1.5pt.
+
+    Retained dollars sit on an existing cohort account for one month in 2025
+    (raises the base under an expansion). Gap dollars are a one-month 2025
+    account with nothing left in 2026. July ending ARR on two Orchard accounts
+    is a same-month top-up, split under the booked-not-billed threshold.
+    """
+    payload = json.loads((Path(__file__).resolve().parent / "rate_ballast.json").read_text())
+    by_name = {}
+    for acct in g.accounts:
+        by_name.setdefault(acct["Name"], acct)
+
+    def span(reporting: str):
+        month_end = dt.date.fromisoformat(reporting)
+        start = add_months(dt.date(month_end.year, month_end.month, 1), -12)
+        return start, add_months(start, 1) - DAY
+
+    countries = {"North America": "US", "EMEA": "GB", "APAC": "JP"}
+    n = 8100
+    for row in payload["retained"]:
+        host = by_name.get(row["account"])
+        if host is None:
+            raise AssertionError(row["account"])
+        start, end = span(row["month"])
+        _rate_order(g, host, n, int(row["amount"]), start, end)
+        n += 1
+    for i, row in enumerate(payload["gap"]):
+        start, end = span(row["month"])
+        name = f"Siltglass {_slug(row['segment'])} {i + 1}"
+        acct = _add_account(
+            g, 8600 + i, name, row["segment"], countries[row["region"]], "USD", "P. Nair", 40,
+        )
+        _rate_order(g, acct, 8600 + i, int(row["gap"]), start, end)
+    # July 2026 ending ARR, on accounts already in that month's cohort.
+    # Kept under $25k each so they are not booked-not-billed.
+    orchard_na = by_name["Orchard Uplift 18.1"]
+    for amount, n in ((20_000, 8900), (20_000, 8901), (20_000, 8902), (16_000, 8903)):
+        _rate_order(g, orchard_na, n, amount, dt.date(2026, 7, 1), dt.date(2026, 7, 31))
+    _rate_order(g, by_name["Orchard Uplift 9.2"], 8910, 12_000, dt.date(2026, 7, 1), dt.date(2026, 7, 31))
+
+
 def _loss_place(index, kind, k):
     return _LOSS_PLACE.get((index, kind, k))
 
@@ -423,8 +480,8 @@ def plant_story(g) -> None:
         a = acct(180 + i, f"Lowell Contract {i + 1}", "Mid-market")
         recurring(a, 180 + i, 80_000, seen_from, prior_end)
         recurring(a, 280 + i, 40_000, aug, term_end, order_type="Renewal")
-    for i in range(3):
-        a = acct(190 + i, f"Pemba Add-on {i + 1}", "Enterprise")
+    for i, name in enumerate(("Pemba Glassworks", "Pemba Meridian", "Pemba Northline")):
+        a = acct(190 + i, name, "Enterprise")
         recurring(a, 190 + i, 100_000, prior_start, term_end)
         recurring(a, 290 + i, 160_000, aug, term_end, order_type="Add-On")
 
@@ -462,6 +519,11 @@ def plant_story(g) -> None:
             )
             recurring(held, n, before, opened, ended)
             recurring(held, 1200 + i * 5 + k, after, loss_start, term_end, order_type="Renewal")
+            # July 2025 only: a one-month credit so this APAC contraction's
+            # trailing-12 rate in July catches August. Skipped by billing, so
+            # the payment draws stay on the original order.
+            if i == 17 and k == 1:
+                _rate_order(g, held, 1886, -80_000, dt.date(2025, 7, 1), dt.date(2025, 7, 31))
         for k, amount in enumerate(expansions):
             n = 1300 + i * 5 + k
             placed = _loss_place(i, "exp", k)
@@ -511,6 +573,22 @@ def plant_story(g) -> None:
     ln = _line(g, arden, "SVC-ONB", 12, 15_000, 134)
     opp = _add_opp(g, arden, 134, start, 180_000, ("Closed Won", 100, "Closed"), True, [ln])
     _add_order(g, arden, 134, opp, start, add_months(start, 12) - DAY, [ln], "New", invoice_from=bnb_from)
+
+    # July month-end booked-not-billed: one-time work invoiced in August, so it is
+    # a balance at 31 Jul and not part of the August stock or the ARR bridge.
+    jul_invoice = dt.date(2026, 8, 3)
+    for n, name, qty, unit, owner in [
+        (1501, "Calder Freight", 32, 15_000, "P. Nair"),
+        (1502, "Ibis Metrics", 24, 15_000, "T. Wu"),
+        (1503, "Northline Studio", 16, 15_000, "P. Nair"),
+    ]:
+        a = acct(n, name, "Mid-market", owner=owner)
+        start = dt.date(2026, 7, 8 + (n - 1501) * 5)
+        ln = _line(g, a, "SVC-ONB", qty, unit, n)
+        opp = _add_opp(g, a, n, start, qty * unit, ("Closed Won", 100, "Closed"), True, [ln])
+        order = _add_order(g, a, n, opp, start, start, [ln], "New", invoice_from=jul_invoice)
+        # Stay out of the billing loop so these rows do not shift the payment draws.
+        order["_skip_billing"] = True
 
     # Won in late August, order on 29 Sep, so August ARR does not include them.
     for n, name, amount, won_on in [
@@ -677,6 +755,7 @@ def plant_story(g) -> None:
         g._jpy_defect_orders.append(order["Id"])
 
     _write_activity(g, events)
+    _plant_rate_ballast(g)
     truth = ROOT / "data" / "truth"
     truth.mkdir(parents=True, exist_ok=True)
     (truth / "story_ids.json").write_text(json.dumps(g._story_pairs, indent=2))

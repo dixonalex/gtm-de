@@ -51,6 +51,7 @@ used as (
        and c.end_date >= m.month_end
     left join {{ ref('stg_billing__usage_record_summary') }} u
         on u.metadata_salesforce_order_item_id = c.order_item_id
+       and u.period_end >= date '2026-01-01'
        and u.period_end <= m.month_end
     group by 1, 2, 3, 4, 5, 6, 7, 8
 ),
@@ -61,15 +62,7 @@ scored as (
         segment,
         currency,
         commit_usd,
-        commit_usd * used_qty / nullif(commit_qty, 0) as consumed_value,
-        commit_usd * greatest(
-            0,
-            least(
-                1,
-                date_diff('day', effective_date, month_end)::double
-                    / nullif(date_diff('day', effective_date, end_date), 0)
-            )
-        ) as elapsed_value
+        commit_usd * used_qty / nullif(commit_qty, 0) as consumed_value
     from used
 )
 
@@ -81,7 +74,7 @@ select
     count(*) as active_commits,
     sum(commit_usd) as commit_usd,
     sum(consumed_value) / nullif(sum(commit_usd), 0) as share_consumed,
-    sum(elapsed_value) / nullif(sum(commit_usd), 0) as straight_line
+    (date_diff('day', date '2026-01-01', month_end) + 1) / 365.0 as straight_line
 from scored
 group by grouping sets (
     (month_end),

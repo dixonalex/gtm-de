@@ -58,6 +58,11 @@
 		return String(value);
 	}
 
+	function isSet(value) {
+		if (!value) return false;
+		return !/select\s+null|input has not been set/i.test(String(value));
+	}
+
 	function paint(current) {
 		const root = document.querySelector(".slice-controls");
 		if (!root) return;
@@ -68,7 +73,7 @@
 			const value = inputValue(current, key);
 			const fallback = defaultMap[key] || "All";
 			const isPrimary = key === primary;
-			const active = !isPrimary && Boolean(value) && value !== fallback;
+			const active = isSet(value) && !isPrimary && value !== fallback;
 			node.classList.toggle("is-period", isPrimary);
 			node.classList.toggle("is-active", active);
 			let clear = node.querySelector(".slice-clear");
@@ -96,24 +101,29 @@
 		const frame = requestAnimationFrame(refresh);
 		const timer = setTimeout(refresh, 0);
 		const unsubscribe = inputs.subscribe((current) => {
-			const params = new URLSearchParams(window.location.search);
-			let changed = false;
-			for (const key of keyList) {
-				const value = inputValue(current, key);
-				const fallback = defaultMap[key];
-				if (!value || value === fallback) {
-					if (params.has(key)) {
-						params.delete(key);
+			const values = keyList.map((key) => inputValue(current, key));
+			// An input that has not resolved still holds Evidence's SQL sentinel.
+			// Leave the URL alone until every key has a real value.
+			if (values.every(isSet)) {
+				const params = new URLSearchParams(window.location.search);
+				let changed = false;
+				keyList.forEach((key, index) => {
+					const value = values[index];
+					const fallback = defaultMap[key];
+					if (!value || value === fallback) {
+						if (params.has(key)) {
+							params.delete(key);
+							changed = true;
+						}
+					} else if (params.get(key) !== value) {
+						params.set(key, value);
 						changed = true;
 					}
-				} else if (params.get(key) !== value) {
-					params.set(key, value);
-					changed = true;
+				});
+				if (changed) {
+					const query = params.toString();
+					history.replaceState(null, "", query ? `${location.pathname}?${query}` : location.pathname);
 				}
-			}
-			if (changed) {
-				const query = params.toString();
-				history.replaceState(null, "", query ? `${location.pathname}?${query}` : location.pathname);
 			}
 			paint(current);
 		});

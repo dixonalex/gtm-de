@@ -9,8 +9,20 @@
 	export let quota = 0;
 	export let height = 280;
 
-	$: finite = [...commit, ...bestCase, quota].filter((value) => Number.isFinite(value));
+	$: finite = [...commit, ...bestCase, quota].filter((value) => Number.isFinite(value) && value != null);
 	$: scale = axisWindow(Math.min(...finite), Math.max(...finite), { floor: 0.35 });
+	$: axis = (() => {
+		const ticks = scale.ticks || [];
+		const step = ticks.length > 1 ? Math.abs(ticks[1] - ticks[0]) : 0;
+		const half = step / 2;
+		const kept = ticks.filter((tick, index) => {
+			if (index === 0) return true;
+			return half <= 0 || Math.abs(tick - Number(quota)) > half;
+		});
+		const baseline = kept[0];
+		const labeled = kept.slice(1, 4);
+		return { ...scale, ticks: baseline == null ? kept : [baseline, ...labeled] };
+	})();
 	$: last = Math.max(commit.length - 1, 0);
 
 	$: option = {
@@ -28,7 +40,7 @@
 			},
 			splitLine: { show: false },
 		},
-		yAxis: valueAxisTicks(scale, (value) => axisMoney(value)),
+		yAxis: valueAxisTicks(axis, (value) => axisMoney(value)),
 		series: [
 			{
 				name: "Commit",

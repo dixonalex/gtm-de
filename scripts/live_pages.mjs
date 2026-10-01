@@ -74,6 +74,59 @@ async function evalText(expression) {
 	return result.result?.result?.value ?? "";
 }
 
+function tileFlash(text) {
+	return /(?:^|[^\d$.])\$0(?![\d.])/.test(text) || /(?:^|[^\d.])0%(?!\d)/.test(text);
+}
+
+async function navigateWatch(url, expression, predicate, label) {
+	const problems = [];
+	const frames = [];
+	const target = new URL(url);
+	await send("Page.navigate", { url });
+	let settled = "";
+	let settledTiles = {};
+	const deadline = Date.now() + 12000;
+	while (Date.now() < deadline) {
+		const raw = await evalText(`(() => JSON.stringify({
+			path: location.pathname,
+			search: location.search,
+			tiles: Object.fromEntries([...document.querySelectorAll("[data-kpi]")].map((node) => [node.getAttribute("data-kpi") || "", node.innerText])),
+		}))()`);
+		let snap = {};
+		try {
+			snap = JSON.parse(raw || "{}");
+		} catch {
+			snap = {};
+		}
+		const path = (snap.path || "/").replace(/\/$/, "") || "/";
+		const want = (target.pathname || "/").replace(/\/$/, "") || "/";
+		if (path === want) {
+			if (String(snap.search || "").includes("SELECT")) problems.push("url contains SELECT");
+			frames.push(snap.tiles || {});
+		}
+		const probe = await evalText(expression);
+		if (predicate(probe)) {
+			settled = probe;
+			settledTiles = snap.tiles || {};
+			break;
+		}
+		await sleep(100);
+	}
+	// A loaded zero stays a zero. A placeholder is a zero that the settled tile replaces.
+	for (const tiles of frames) {
+		for (const [name, text] of Object.entries(tiles)) {
+			if (!tileFlash(String(text || ""))) continue;
+			if (tileFlash(String(settledTiles[name] || ""))) continue;
+			problems.push(`tile ${name}`);
+			break;
+		}
+	}
+	if (!settled) failures.push(`${label}: did not settle`);
+	else if (!predicate(settled)) failures.push(`${label}: ${String(settled).replaceAll("\n", " | ").slice(0, 240)}`);
+	if (problems.length) failures.push(`${label} flash: ${[...new Set(problems)].slice(0, 3).join(" || ")}`);
+	return settled;
+}
+
 async function waitFor(expression, predicate, label) {
 	let value = "";
 	for (let i = 0; i < 40; i++) {
@@ -117,16 +170,16 @@ const owner = numbers.deal_desk.open_items[0].owner;
 const companyBookings = money(numbers.finance.bookings);
 
 try {
-	await connect(`${base}/`);
-	await waitFor(tile("Committed ARR"), (text) => text.includes(companyArr), "default executive ARR");
+	await connect("about:blank");
+	await navigateWatch(`${base}/`, tile("Committed ARR"), (text) => text.includes(companyArr), "default executive ARR");
 	await waitFor(
 		`document.body.innerText`,
 		(text) => text.includes("Company") && text.includes("Revenue review"),
 		"default executive copy",
 	);
 
-	await send("Page.navigate", { url: `${base}/?segment=Enterprise` });
-	await waitFor(
+	await navigateWatch(
+		`${base}/?segment=Enterprise`,
 		tile("Committed ARR"),
 		(text) => text.includes(enterpriseArr) && !text.includes(companyArr),
 		"seeded enterprise ARR",
@@ -149,14 +202,8 @@ try {
 		"Mid-market ARR",
 	);
 
-	await send("Page.navigate", { url: `${base}/sales/` });
-	await waitFor(bullet("Won QTD"), (text) => text.includes(companyWon), "default sales won");
-	await send("Page.navigate", { url: `${base}/sales/?segment=Enterprise` });
-	await waitFor(
-		`document.body.innerText`,
-		(text) => text.includes("Enterprise only"),
-		"seeded sales subtitle",
-	);
+	await navigateWatch(`${base}/sales/`, bullet("Won QTD"), (text) => text.includes(companyWon), "default sales won");
+	await navigateWatch(`${base}/sales/?segment=Enterprise`, `document.body.innerText`, (text) => text.includes("Enterprise only"), "seeded sales subtitle");
 	await waitFor(
 		bullet("Won QTD"),
 		(text) => text.includes(enterpriseWon) && !text.includes(companyWon),
@@ -169,19 +216,14 @@ try {
 		"sales URL after Mid-market",
 	);
 
-	await send("Page.navigate", { url: `${base}/deal-desk/` });
-	await waitFor(
+	await navigateWatch(
+		`${base}/deal-desk/`,
 		`document.body.innerText`,
 		(text) => text.includes("Quote-to-cash exceptions") && text.includes("Create order"),
 		"default deal desk",
 	);
 	const ownerUrl = `${base}/deal-desk/?owner=${encodeURIComponent(owner)}`;
-	await send("Page.navigate", { url: ownerUrl });
-	await waitFor(
-		`document.body.innerText`,
-		(text) => text.includes(`${owner} only`),
-		"seeded deal desk owner",
-	);
+	await navigateWatch(ownerUrl, `document.body.innerText`, (text) => text.includes(`${owner} only`), "seeded deal desk owner");
 	await clickOption(2, "Won, no order");
 	await waitFor(
 		`location.search`,
@@ -189,14 +231,8 @@ try {
 		"deal desk URL after type",
 	);
 
-	await send("Page.navigate", { url: `${base}/finance/` });
-	await waitFor(tile("Bookings"), (text) => text.includes(companyBookings), "default finance bookings");
-	await send("Page.navigate", { url: `${base}/finance/?currency=EUR` });
-	await waitFor(
-		`document.body.innerText`,
-		(text) => text.includes("EUR only"),
-		"seeded finance currency",
-	);
+	await navigateWatch(`${base}/finance/`, tile("Bookings"), (text) => text.includes(companyBookings), "default finance bookings");
+	await navigateWatch(`${base}/finance/?currency=EUR`, `document.body.innerText`, (text) => text.includes("EUR only"), "seeded finance currency");
 	await waitFor(
 		tile("Bookings"),
 		(text) => text.length > 0 && !text.includes(companyBookings),
@@ -209,14 +245,14 @@ try {
 		"finance URL after segment",
 	);
 
-	await send("Page.navigate", { url: `${base}/data-health/` });
-	await waitFor(
+	await navigateWatch(
+		`${base}/data-health/`,
 		`document.body.innerText`,
 		(text) => text.includes("Pipeline and tests") && text.includes("salesforce"),
 		"default data health",
 	);
-	await send("Page.navigate", { url: `${base}/data-health/?severity=ERROR` });
-	await waitFor(
+	await navigateWatch(
+		`${base}/data-health/?severity=ERROR`,
 		`[...document.querySelectorAll('#lineage tbody .sr')].map((node) => node.textContent.trim()).join(',')`,
 		(text) => text.length > 0 && text.split(",").every((part) => part === "ERROR"),
 		"seeded data health severity",

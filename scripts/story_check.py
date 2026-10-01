@@ -130,6 +130,29 @@ def main() -> None:
         check(f"NRR moves gradually {label}", nrr_pts <= 1.5, f"{nrr_pts:.2f} pt")
         check(f"GRR moves gradually {label}", grr_pts <= 1.5, f"{grr_pts:.2f} pt")
 
+    slice_path = con.execute(
+        """
+        select segment, region, month_end, nrr, grr
+        from marts.rpt_executive_month
+        where month_end between date '2026-01-31' and date '2026-08-31'
+          and (segment = 'All' or region = 'All')
+        order by segment, region, month_end
+        """
+    ).fetchall()
+    by_slice = {}
+    for segment, region, month_end, nrr, grr in slice_path:
+        by_slice.setdefault((segment, region), []).append((month_end, nrr, grr))
+    for (segment, region), points in by_slice.items():
+        if segment == "All" and region == "All":
+            continue
+        label = f"{segment} / {region}"
+        for prev, cur in zip(points, points[1:]):
+            nrr_pts = abs(cur[1] - prev[1]) * 100
+            grr_pts = abs(cur[2] - prev[2]) * 100
+            when = f"{prev[0]} → {cur[0]}"
+            check(f"slice NRR moves gradually {label} {when}", nrr_pts <= 1.5, f"{nrr_pts:.2f} pt")
+            check(f"slice GRR moves gradually {label} {when}", grr_pts <= 1.5, f"{grr_pts:.2f} pt")
+
     won = con.execute(
         """
         select sum(bookings_acv_usd) from marts.fct_bookings_monthly
@@ -247,6 +270,18 @@ def main() -> None:
     ).fetchall()
     check("booked not billed", len(bnb) == 5 and abs(sum(r[1] for r in bnb) - 1_800_000) < 1,
           f"{len(bnb)} ${sum(r[1] for r in bnb):,.0f}")
+    bnb_jul = con.execute(
+        """
+        select coalesce(sum(amount_usd), 0)
+        from marts.fct_booked_not_billed
+        where month_end = date '2026-07-31'
+        """
+    ).fetchone()[0]
+    check(
+        "July booked not billed is a real balance",
+        600_000 <= bnb_jul <= 1_500_000,
+        f"${bnb_jul:,.0f}",
+    )
 
     jpy = con.execute(
         """
@@ -358,6 +393,21 @@ def main() -> None:
         """
     ).fetchall()
     check("won <= commit <= best case on every slice", not forecast_order, str(forecast_order[:4]))
+    borrowed = con.execute(
+        """
+        select view_segment, view_region, label, note_segment, note_region
+        from marts.rpt_executive_commentary
+        where month_end = date '2026-08-31'
+          and commentary is not null
+          and (
+            (not (view_segment = 'All' and view_region = 'All')
+              and (note_segment != view_segment or note_region != view_region))
+            or (view_segment = 'All' and view_region = 'All' and note_region != 'All')
+            or (view_segment = 'All' and label like '%·%' and note_segment = 'All')
+          )
+        """
+    ).fetchall()
+    check("commentary text matches the row slice", not borrowed, str(borrowed[:4]))
 
     # A loss and a same-size gain under one corporate parent are a planted pair.
     # Account-level amounts, so a parent rollup that happens to net to zero
@@ -434,6 +484,13 @@ def main() -> None:
         order by 1
         """
     ).fetchall()
+    for month_end, consumed, line in usage_rows:
+        elapsed = (month_end - dt.date(2026, 1, 1)).days + 1
+        check(
+            f"straight line {month_end}",
+            abs(line - elapsed / 365) < 1e-9,
+            f"{line:.4f} vs {elapsed}/365",
+        )
     gaps = [(r[0], r[2] - r[1]) for r in usage_rows]
     aug_gap = next(g for m, g in gaps if m == dt.date(2026, 8, 31))
     jan_gap = next(g for m, g in gaps if m == dt.date(2026, 1, 31))

@@ -37,6 +37,14 @@
 	$: months = labels.map(shortMonth);
 	$: gaps = actual.map((value, i) => value - (plan[i] || 0));
 	$: last = actual.length - 1;
+	$: labeledGaps = (() => {
+		if (!gaps.length) return new Set();
+		let largest = 0;
+		gaps.forEach((gap, index) => {
+			if (Math.abs(gap) > Math.abs(gaps[largest])) largest = index;
+		});
+		return new Set([last, largest]);
+	})();
 	$: delta = last >= 0 ? actual[last] - (plan[last] || 0) : 0;
 	$: gapPts = last >= 0 ? (actual[last] - plan[last]) * 100 : 0;
 	$: outside = pointGap ? Math.abs(gapPts) > 5 + 1e-9 : last >= 0 && gapOutside(delta, plan[last]);
@@ -171,7 +179,7 @@
 								value: gap,
 								itemStyle: { color: gapOutside(gap, plan[i]) ? UNFAVORABLE : CONTEXT },
 								label: {
-									show: true,
+									show: labeledGaps.has(i),
 									position: "top",
 									distance: 2,
 									rotate: 0,

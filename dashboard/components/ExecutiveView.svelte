@@ -5,7 +5,7 @@
 	import PageFooter from "./PageFooter.svelte";
 	import PageHeader from "./PageHeader.svelte";
 	import SignedBridge from "./SignedBridge.svelte";
-	import { asRows, dayLabel, money, monthLabel, onlyLabel, percent, verdict } from "./format.js";
+	import { asRows, dayLabel, money, monthLabel, onlyLabel, percent, present, verdict } from "./format.js";
 
 	export let kpi = [];
 	export let trend = [];
@@ -21,14 +21,15 @@
 	}
 
 	$: row = asRows(kpi)[0] || {};
-	$: series = asRows(trend);
+	$: ready = present(row);
+	$: series = ready ? asRows(trend) : [];
 	$: comments = asRows(notes);
 	$: moved = asRows(movers);
 	$: gains = moved.filter((item) => item.side === "gain");
 	$: losses = moved.filter((item) => item.side === "loss");
 	$: eventRow = asRows(events).find((item) => item.applies_to === "arr");
 	$: lineEvent = eventRow ? { at: eventRow.event_date, label: `Jun · ${eventRow.label}` } : null;
-	$: sliceText = onlyLabel([row.segment, row.region]);
+	$: sliceText = ready ? onlyLabel([row.segment, row.region]) || "Company" : "";
 	$: sources = asRows(freshness)
 		.slice()
 		.sort((a, b) => (a.connector_id === "salesforce" ? -1 : 1))
@@ -58,6 +59,18 @@
 		return "";
 	}
 
+	function sliceName(note) {
+		const names = [note.view_segment, note.view_region].filter((value) => value && value !== "All");
+		return names.length ? names.join(" · ") : "the company";
+	}
+
+	function moverHead(rows) {
+		const count = rows.length;
+		if (!count) return "";
+		const title = count < 5 ? `All ${count}` : `Top ${count}`;
+		return `${title}: ${money(Math.abs(rows[0]?.top_total_usd || 0))} of ${money(Math.abs(rows[0]?.side_total_usd || 0))}`;
+	}
+
 	$: steps = bridgeSteps(row);
 	$: period = monthLabel(row.month_end);
 	$: prior = monthLabel(row.prior_month_end);
@@ -80,29 +93,31 @@
 </PageHeader>
 
 <div class="kpi-row">
-	<KpiTile label="Committed ARR" period={period} value={row.committed_arr_usd} plan={row.arr_plan_usd} prior={row.prior_arr_usd} priorLabel={prior} />
-	<KpiTile label="Net new ARR" period={period} value={row.net_new_usd} plan={row.net_new_plan_usd} prior={row.prior_net_new_usd} priorLabel={prior} band="flow" />
-	<KpiTile label="NRR (T12M)" period={period} value={row.nrr} plan={row.nrr_plan} prior={row.prior_nrr} priorLabel={prior} format="percent" />
-	<KpiTile label="GRR (T12M)" period={period} value={row.grr} plan={row.grr_plan} prior={row.prior_grr} priorLabel={prior} format="percent" />
+	<KpiTile label="Committed ARR" period={ready ? period : ""} value={ready ? row.committed_arr_usd : null} plan={ready ? row.arr_plan_usd : null} prior={ready ? row.prior_arr_usd : null} priorLabel={prior} />
+	<KpiTile label="Net new ARR" period={ready ? period : ""} value={ready ? row.net_new_usd : null} plan={ready ? row.net_new_plan_usd : null} prior={ready ? row.prior_net_new_usd : null} priorLabel={prior} band="flow" />
+	<KpiTile label="NRR (T12M)" period={ready ? period : ""} value={ready ? row.nrr : null} plan={ready ? row.nrr_plan : null} prior={ready ? row.prior_nrr : null} priorLabel={prior} format="percent" />
+	<KpiTile label="GRR (T12M)" period={ready ? period : ""} value={ready ? row.grr : null} plan={ready ? row.grr_plan : null} prior={ready ? row.prior_grr : null} priorLabel={prior} format="percent" />
 </div>
 
 <div class="two-up bridge" id="arr">
-	<ChartBlock title="Committed ARR vs plan, FY26" subtitle={sliceText || "Company"} definitionHref="#definitions">
-		<ActualVsPlanLine
-			labels={series.map((item) => item.month_key)}
-			actual={series.map((item) => Number(item.committed_arr_usd))}
-			plan={series.map((item) => Number(item.arr_plan_usd))}
-			event={lineEvent}
-			showGap
-		/>
+	<ChartBlock title="Committed ARR vs plan, FY26" subtitle={sliceText} definitionHref="#definitions">
+		{#if ready}
+			<ActualVsPlanLine
+				labels={series.map((item) => item.month_key)}
+				actual={series.map((item) => Number(item.committed_arr_usd))}
+				plan={series.map((item) => Number(item.arr_plan_usd))}
+				event={lineEvent}
+				showGap
+			/>
+		{/if}
 	</ChartBlock>
-	<ChartBlock title="ARR bridge, {period.replace(/ \d{4}$/, '')}" subtitle={sliceText || "Company"}>
+	<ChartBlock title="ARR bridge, {period.replace(/ \d{4}$/, '')}" subtitle={sliceText}>
 		<div slot="toggle" class="inert" aria-label="Break down by">
 			<button type="button" class="on">None</button>
 			<button type="button">Segment</button>
 			<button type="button">Region</button>
 		</div>
-		<SignedBridge {steps} />
+		{#if ready}<SignedBridge {steps} />{/if}
 	</ChartBlock>
 </div>
 
@@ -131,8 +146,9 @@
 							<a href="#arr">View</a>
 						{:else}
 							<em>
-								No commentary yet.{#if note.requested_from}
+								No commentary for {sliceName(note)} yet.{#if note.requested_from}
 									Requested from {note.requested_from} on {dayLabel(note.requested_on)}.{/if}
+								{#if note.due_on && !note.author} Due {dayLabel(note.due_on)}.{/if}
 							</em>
 						{/if}
 					</td>
@@ -148,7 +164,7 @@
 	<div class="two-up even">
 		<div>
 			<h3>Largest gains</h3>
-			<p class="mover-head">Top 5: {money(gains[0]?.top_total_usd)} of {money(gains[0]?.side_total_usd)}</p>
+			<p class="mover-head">{moverHead(gains)}</p>
 			{#each gains as item}
 				<div class="mover">
 					<div>
@@ -162,7 +178,7 @@
 		</div>
 		<div>
 			<h3>Largest losses</h3>
-			<p class="mover-head">Top 5: {money(Math.abs(losses[0]?.top_total_usd || 0))} of {money(Math.abs(losses[0]?.side_total_usd || 0))}</p>
+			<p class="mover-head">{moverHead(losses)}</p>
 			{#each losses as item}
 				<div class="mover">
 					<div>

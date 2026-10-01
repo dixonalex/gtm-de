@@ -3,16 +3,17 @@
 
 	export let label = "";
 	export let period = "";
-	export let value = 0;
-	export let quota = 1;
+	export let value = null;
+	export let quota = null;
 	export let tickLabel = "quota";
 	export let compact = false;
 	export let bandPts = RATE_BAND_PTS;
 
-	$: attainment = quota ? Number(value) / Number(quota) : 0;
+	$: loaded = value != null && value !== "" && quota != null && quota !== "";
+	$: attainment = loaded ? Number(value) / Number(quota) : 0;
 	$: pts = (attainment - 1) * 100;
 	$: tone =
-		quota == null || quota === ""
+		!loaded
 			? { state: "missing", color: "var(--color-ink)" }
 			: Math.abs(pts) <= bandPts + 1e-9
 				? { state: "inside", color: "var(--color-ink)" }
@@ -24,25 +25,26 @@
 	$: bandLeft = ((1 - limit) / 1.5) * 100;
 	$: bandWidth = ((2 * limit) / 1.5) * 100;
 	$: gap = Number(value) - Number(quota);
-	$: line =
-		tone.state === "missing"
-			? "No plan set"
-			: `${percent(attainment)} of quota · ${money(gap, { signed: true })}`;
+	$: line = !loaded
+		? ""
+		: `${percent(attainment)} of quota · ${money(gap, { signed: true })}`;
 </script>
 
 <article class="bullet" class:compact>
 	<p class="label">{label}{period ? ` · ${period}` : ""}</p>
-	{#if !compact}<p class="value num">{money(value)}</p>{/if}
+	{#if !compact}<p class="value num">{loaded ? money(value) : ""}</p>{/if}
 	<div class="track" aria-hidden="true">
 		<div class="band" style="left: {bandLeft}%; width: {bandWidth}%"></div>
 		<div class="tick"></div>
 		<div class="bar" style="width: {width}%"></div>
 	</div>
-	<div class="scale">
-		<span>0%</span>
-		<span class="plan">{tickLabel}</span>
-		<span>150%</span>
-	</div>
+	{#if loaded}
+		<div class="scale">
+			<span>0%</span>
+			<span class="plan">{tickLabel}</span>
+			<span>150%</span>
+		</div>
+	{/if}
 	<p class="line num" style="color: {tone.color}">{line}</p>
 </article>
 

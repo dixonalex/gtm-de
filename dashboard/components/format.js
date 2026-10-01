@@ -7,8 +7,15 @@ export const RATE_BAND_PTS = 1;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function num(value) {
+	if (value == null || value === "") return null;
 	const n = typeof value === "number" ? value : Number(value);
 	return Number.isFinite(n) ? n : null;
+}
+
+/** A query row has arrived. An empty object is the loading shell, not a zero result. */
+export function present(row) {
+	if (!row || typeof row !== "object") return false;
+	return Object.values(row).some((value) => value != null && value !== "");
 }
 
 const LOCAL = { USD: "$", EUR: "€", GBP: "£", JPY: "¥", CAD: "C$", AUD: "A$" };
