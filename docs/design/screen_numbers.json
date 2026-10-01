@@ -1,0 +1,198 @@
+{
+  "executive": {
+    "august_bridge": {
+      "opening": 117979222.4021549,
+      "new": 3601385.870167801,
+      "expansion": 1563238.7665773034,
+      "contraction": -571805.6119630864,
+      "churn": -400000.0,
+      "reactivation": 0.0,
+      "closing": 122172041.42693691
+    },
+    "arr_by_month": {
+      "2026-01-31": 100339566.85922623,
+      "2026-02-28": 105731704.24541405,
+      "2026-03-31": 110170322.11266436,
+      "2026-04-30": 112494928.31627734,
+      "2026-05-31": 114383492.82353236,
+      "2026-06-30": 116311583.97555359,
+      "2026-07-31": 117979222.40215485,
+      "2026-08-31": 122172041.42693682
+    },
+    "enterprise_arr": 58571969.775485456,
+    "nrr": 1.030735672267313,
+    "grr": 0.9083617779502491,
+    "won_qtd": 11544100.092119955
+  },
+  "sales": {
+    "won_qtd": 11544100.092119955,
+    "quota": 14251975.422370313,
+    "commit": 12969297.634356987,
+    "week_5_commit": 14033941.47,
+    "week_13_commit": 12969297.63,
+    "week_13_best_case": 13824416.16,
+    "slipped_amount": 1100000.0,
+    "slipped_deals": [
+      {
+        "account": "Mosaic Transit",
+        "amount": 120000.0,
+        "slips": 1
+      },
+      {
+        "account": "Cinder Freight",
+        "amount": 180000.0,
+        "slips": 1
+      },
+      {
+        "account": "Brightline Dental",
+        "amount": 140000.0,
+        "slips": 3
+      },
+      {
+        "account": "Orbit Supply",
+        "amount": 100000.0,
+        "slips": 2
+      },
+      {
+        "account": "Harbor County Health",
+        "amount": 320000.0,
+        "slips": 2
+      },
+      {
+        "account": "Ostrava Labs",
+        "amount": 240000.0,
+        "slips": 1
+      }
+    ]
+  },
+  "deal_desk": {
+    "open_count": 10,
+    "open_amount": 2300000.0,
+    "past_sla_count": 3,
+    "past_sla_amount": 726000.0,
+    "breach_tomorrow_count": 2,
+    "breach_tomorrow_amount": 625000.0,
+    "resolved_count": 23,
+    "resolved_amount": 4800000.0,
+    "resolved_median_days": 1.6,
+    "yesterday_open_count": 11,
+    "yesterday_open_amount": 2390000.0,
+    "yesterday_past_sla_count": 2,
+    "open_items": [
+      {
+        "account": "Northwind Logistics",
+        "age_days": 9.0,
+        "amount": 412000.0,
+        "owner": "M. Okafor"
+      },
+      {
+        "account": "Halvorsen Group",
+        "age_days": 6.0,
+        "amount": 186000.0,
+        "owner": "J. Reyes"
+      },
+      {
+        "account": "Ostrander Freight",
+        "age_days": 4.0,
+        "amount": 128000.0,
+        "owner": "J. Reyes"
+      },
+      {
+        "account": "Larkspur Energy",
+        "age_days": 2.0,
+        "amount": 530000.0,
+        "owner": "A. Chen"
+      },
+      {
+        "account": "Corvid Robotics",
+        "age_days": 0.0,
+        "amount": 310000.0,
+        "owner": "M. Okafor"
+      },
+      {
+        "account": "Tidewater Health",
+        "age_days": 1.0,
+        "amount": 240000.0,
+        "owner": "M. Okafor"
+      },
+      {
+        "account": "Pinecrest Media",
+        "age_days": 3.0,
+        "amount": 205000.0,
+        "owner": "J. Reyes"
+      },
+      {
+        "account": "Saltmarsh Bank",
+        "age_days": 2.0,
+        "amount": 150000.0,
+        "owner": "A. Chen"
+      },
+      {
+        "account": "Kestrel Bio",
+        "age_days": 2.0,
+        "amount": 95000.0,
+        "owner": "A. Chen"
+      },
+      {
+        "account": "Ferrow Studios",
+        "age_days": 1.0,
+        "amount": 44000.0,
+        "owner": "J. Reyes"
+      }
+    ]
+  },
+  "finance": {
+    "bookings": 6439588.8397879405,
+    "renewals_and_existing": 5517435.6354903905,
+    "usage_overage": 230189.16977494853,
+    "booked_not_billed": 1800000.0,
+    "cancels_and_credits": 152.27629688089613,
+    "billed_without_order": 180000.0,
+    "billings": 10567061.368756399,
+    "ar_current": 8594259.753559995,
+    "ar_1_30": 2530327.0392469326,
+    "ar_31_90": 4272475.781012204,
+    "ar_over_90": 414389.0246218041,
+    "dso_days": 47.0892040529833,
+    "active_commits": 397,
+    "commit_usd": 38544694.95612117,
+    "share_consumed": 0.40688559331422186,
+    "straight_line": 0.4944661737152968,
+    "booked_not_billed_orders": [
+      {
+        "account": "Quillon Systems",
+        "amount": 350000.0,
+        "age_bd": 4
+      },
+      {
+        "account": "Harbor & Pine",
+        "amount": 410000.0,
+        "age_bd": 7
+      },
+      {
+        "account": "Arden Biotech",
+        "amount": 180000.0,
+        "age_bd": 1
+      },
+      {
+        "account": "Tern Logistics",
+        "amount": 240000.0,
+        "age_bd": 2
+      },
+      {
+        "account": "Solace Robotics",
+        "amount": 620000.0,
+        "age_bd": 12
+      }
+    ]
+  },
+  "data_health": {
+    "fct_arr_monthly": "PASS",
+    "rpt_bookings_to_billings": "ERROR",
+    "salesforce": "PASS",
+    "fct_pipeline_snapshot": "PASS",
+    "stripe": "WARN",
+    "fct_bookings": "PASS",
+    "fct_billings": "WARN"
+  }
+}

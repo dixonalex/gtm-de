@@ -8,12 +8,18 @@ with syncs as (
     group by connector_id
 ),
 
+clock as (
+    select cast(now as timestamp) as now
+    from {{ ref('stg_fivetran_log__extract_clock') }}
+),
+
 aged as (
     select
         {{ as_of_date() }} as as_of_date,
         connector_id,
         last_successful_sync,
-        date_diff('hour', last_successful_sync, timezone('UTC', current_timestamp)) as age_hours
+        date_diff('hour', last_successful_sync, (select now from clock)) as age_hours,
+        date_diff('minute', last_successful_sync, (select now from clock)) as age_minutes
     from syncs
 )
 
@@ -22,6 +28,7 @@ select
     connector_id,
     last_successful_sync,
     age_hours,
+    age_minutes,
     case
         when connector_id = 'salesforce' and age_hours >= 6 then 'ERROR'
         when connector_id = 'salesforce' and age_hours >= 2 then 'WARN'

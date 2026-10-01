@@ -9,3 +9,8 @@ select
 from {{ ref('dq_backlog') }}
 where exception_type = 'closed_won_without_order'
   and age_days between 0 and 7
+  and age_days > (
+      select cast(threshold_value as integer)
+      from {{ ref('policy_thresholds') }}
+      where threshold_key = 'sla_won_without_order_bd'
+  )

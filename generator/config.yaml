@@ -25,25 +25,41 @@ currencies:            # corporate currency USD; rate = units per 1 USD
   AUD: {rate: 1.52,  weight: 0.02, countries: [AU]}
 
 funnel:
-  new_biz_win_rate: 0.28
+  new_biz_win_rate: 0.60
   expansion_win_rate: 0.55
-  renewal_win_rate: 0.86
-  expansion_rate: 0.35          # share of active contracts that spawn an expansion opp
-  retry_after_loss_rate: 0.40   # lost prospects that get another new-business opp later
-  sales_cycle_days: [25, 150]
+  renewal_win_rate: 0.997
+  expansion_rate: 0.10          # share of active contracts that spawn an expansion opp
+  retry_after_loss_rate: 0.15   # lost prospects that get another new-business opp later
+  sales_cycle_days: [30, 90]
+  # random()**power. Above 1 pulls the first touch toward the start of history
+  # so the ARR base is in place and recent months add about 3%.
+  first_touch_power: 3.2
+  renewal_qty_factor: [0.99, 1.02]
+  # New-business quantity before this date is the installed base. Renewals keep it.
+  # 2026 new logos stay at scale 1 so monthly net new stays near $4M.
+  installed_base_before: "2026-01-01"
+  installed_base_scale: 3.15
+
+# Employee bands map onto these names. Deal size is what makes Enterprise ~half of ARR.
+segments:
+  Startups:      {seats: [5, 16],    credits: [3000, 10000],    disc: [0, 5]}
+  SMB:           {seats: [12, 40],   credits: [8000, 25000],    disc: [0, 10]}
+  "Mid-market":  {seats: [28, 90],   credits: [20000, 70000],   disc: [5, 15]}
+  "Public sector": {seats: [24, 80], credits: [15000, 50000],   disc: [5, 12]}
+  Enterprise:    {seats: [360, 1150], credits: [180000, 550000], disc: [12, 28]}
 
 # Deliberate data-quality defects. Rates are per-eligible-record.
 mess:
-  won_without_order: 0.04          # Closed Won, ops never created the Order
+  won_without_order: 0.04          # applied, then an order is created; planted rows stay open
   won_without_order_billed: 0.35   # ...of which billing invoiced anyway, off-process
-  reduction_order: 0.05            # mid-term downsell via IsReductionOrder
-  cancelled_order: 0.02            # Order cancelled after activation
+  reduction_order: 0.012           # mid-term downsell via IsReductionOrder
+  cancelled_order: 0.004           # Order cancelled after activation
   duplicate_account: 0.05          # same company, second Account record
-  amount_override: 0.02            # Opportunity.Amount hand-edited, != sum(lines)
+  amount_override: 0.02            # Opportunity.Amount hand-edited, != sum(lines); not in the last 14 days
   deleted_opportunity: 0.01        # IsDeleted = true (soft delete)
   invoice_missing_order_ref: 0.07  # Stripe invoice metadata lacks salesforce_order_id
-  partial_payment: 0.05
-  failed_then_retried: 0.04
-  late_arriving: 0.015             # _loaded_at 3-20 days after SystemModstamp
-  salesforce_sync_lag_minutes: 45  # last Salesforce connector sync = now - this
-  billing_sync_lag_hours: 30       # last billing connector sync = now - this (trips freshness warn)
+  partial_payment: 0.04
+  failed_then_retried: 0.03
+  late_arriving: 0.015             # _loaded_at 3-14 days after SystemModstamp, never in the last 8 days
+  salesforce_sync_lag_minutes: 12  # last Salesforce connector sync = now - this
+  billing_sync_lag_hours: 31       # last billing connector sync = now - this (trips freshness warn)

@@ -40,6 +40,9 @@ month_ends as (
         interval 1 month
     ) t(gs)
     where cast(date_trunc('month', gs) + interval 1 month - interval 1 day as date) <= {{ as_of_date() }}
+      and cast(date_trunc('month', gs) + interval 1 month - interval 1 day as date) in (
+          select month_end from {{ ref('close_calendar') }} where close_date <= {{ as_of_date() }}
+      )
 ),
 
 as_of as (

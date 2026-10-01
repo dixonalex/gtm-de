@@ -8,7 +8,7 @@ current-state rows, Salesforce API field names verbatim, Stripe field names verb
 
 Usage:
     python generator/generate.py                     # as_of = today (UTC), now = wall clock
-    python generator/generate.py --as-of 2026-09-27  # pinned: byte-identical output
+    python generator/generate.py --as-of 2026-09-30  # pinned: now = 17:05 UTC, byte-identical
 """
 from __future__ import annotations
 
@@ -114,6 +114,26 @@ def _drop_first_vowel(name: str) -> str:
         if ch.lower() in "aeiou":
             return name[:i] + name[i + 1:]
     return name + "x"
+
+
+def segment_for(emp: int) -> str:
+    if emp < 40:
+        return "Startups"
+    if emp < 150:
+        return "SMB"
+    if emp < 600:
+        return "Mid-market"
+    if emp < 2500:
+        return "Public sector"
+    return "Enterprise"
+
+
+def region_for(country: str) -> str:
+    if country in ("US", "CA"):
+        return "North America"
+    if country in ("JP", "AU"):
+        return "APAC"
+    return "EMEA"
 
 
 def b62(n: int, width: int) -> str:
@@ -258,6 +278,9 @@ class Gen:
                  "Therapeutics", "Outfitters", "Collective", "Instruments", "Marine", "Pharma", "Telecom", "Agritech", "Motors"]
         pool = sorted({f"{a} {b}" for a in NAME_A for b in NAME_B + extra})
         pool += sorted({f"{a} & {b}" for a in NAME_A for b in NAME_A if a < b})
+        from story import reserved_account_names
+        reserved = reserved_account_names()
+        pool = [p for p in pool if p not in reserved]
         assert len(pool) >= n, "not enough unique company names for configured volume"
         self.accounts = []
         for base in self.identity.permutation(pool)[:n]:
@@ -265,13 +288,13 @@ class Gen:
             cur = str(self.identity.choice(curs, p=weights))
             country = str(self.identity.choice(self.curs[cur]["countries"]))
             emp = int(np.clip(self.identity.lognormal(5.5, 1.4), 5, 80000))
-            seg = "SMB" if emp < 200 else "MM" if emp < 2000 else "ENT"
+            seg = segment_for(emp)
             suffix = "GmbH" if country == "DE" else "Ltd." if country in ("GB", "IE") \
                 else "K.K." if country == "JP" else str(self.identity.choice(NAME_C[:4]))
             created = self.ts(self.start + dt.timedelta(days=self.i(-120, (self.as_of - self.start).days - 45)))
             a = dict(Id=self.sfid("001"), Name=f"{base} {suffix}".strip(), base=base,
                      Website=f"www.{''.join(ch for ch in base.lower() if ch.isalnum())}.com", Industry=str(self.identity.choice(INDUSTRIES)),
-                     NumberOfEmployees=emp, segment=seg, BillingCountry=country,
+                     NumberOfEmployees=emp, segment=seg, region=region_for(country), BillingCountry=country,
                      BillingState=str(self.identity.choice(US_STATES)) if country == "US" else None,
                      CurrencyIsoCode=cur, OwnerId=str(self.identity.choice(self.reps)), CreatedDate=created,
                      dup=None, canonical=None, last_touch=created, won_any=False, active_contracts=0,
@@ -296,22 +319,33 @@ class Gen:
                 self.accounts.append(d)
 
     # ------------------------------------------------------------ deal shapes
-    def nb_lines(self, seg):
-        mix = self.rng.choice(["seats", "api", "both"], p=[0.5, 0.3, 0.2])
+    def vintage_scale(self, when: dt.date) -> float:
+        cut = dt.date.fromisoformat(self.cfg["funnel"]["installed_base_before"])
+        if when < cut:
+            return float(self.cfg["funnel"]["installed_base_scale"])
+        return 1.0
+
+    def nb_lines(self, seg, when: dt.date):
+        spec = self.cfg["segments"][seg]
+        scale = self.vintage_scale(when)
+        mix = self.rng.choice(["seats", "api", "both"], p=[0.62, 0.22, 0.16])
         lines = []
         if mix in ("seats", "both"):
-            code = "SEAT-TEAM" if seg == "SMB" or (seg == "MM" and self.p(0.5)) else "SEAT-ENT"
-            qty = {"SMB": (5, 60), "MM": (40, 400), "ENT": (200, 3000)}[seg]
-            disc = {"SMB": (0, 10), "MM": (5, 20), "ENT": (10, 30)}[seg]
-            lines.append([code, self.i(*qty), round(self.u(*disc))])
-            if seg != "SMB" and self.p(0.4):
-                lines.append(["SUP-PREM", 1, round(self.u(0, 15))])
+            code = "SEAT-ENT" if seg == "Enterprise" else "SEAT-TEAM"
+            qty = max(1, int(self.i(*spec["seats"]) * scale))
+            # 2026 logos stay under the planted top movers (Tern is $240k).
+            if scale == 1:
+                qty = min(qty, 200 if seg == "Enterprise" else 80)
+            lines.append([code, qty, round(self.u(*spec["disc"]))])
+            if seg in ("Enterprise", "Mid-market", "Public sector") and self.p(0.25):
+                lines.append(["SUP-PREM", 1, round(self.u(0, 10))])
         if mix in ("api", "both"):
-            lo, hi = {"SMB": (20, 100), "MM": (100, 750), "ENT": (500, 5000)}[seg]
-            credits = self.i(lo, hi) * 1000
-            lines.append(["API-COMMIT", credits, round(min(25, credits / 200_000) + self.u(0, 5))])
-        if self.p(0.3):
-            lines.append(["SVC-ONB", self.i(1, 4), round(self.u(0, 20))])
+            credits = max(1000, int(self.i(*spec["credits"]) * scale))
+            if scale == 1:
+                credits = min(credits, 80_000)
+            lines.append(["API-COMMIT", credits, round(self.u(0, 8))])
+        if self.p(0.15):
+            lines.append(["SVC-ONB", 1, round(self.u(0, 10))])
         return lines
 
     # ------------------------------------------------------------ opportunity engine
@@ -349,7 +383,8 @@ class Gen:
         line_total = money(sum(l["total"] for l in lines), cur)
         estimate = money(round(max(line_total, 5000 * self.curs[cur]["rate"]) * self.u(0.6, 1.4), -3), cur)
         amount = line_total if lines else estimate
-        if closed and won and self.p(self.cfg["mess"]["amount_override"]):
+        if closed and won and lines and self.p(self.cfg["mess"]["amount_override"]) \
+                and (self.as_of - close).days > 14:
             amount = money(round(line_total * self.u(0.9, 1.1), -2), cur)
 
         # Close-date slip on some deals: earlier history rows carry the original CloseDate
@@ -430,6 +465,7 @@ class Gen:
             CloseDate=close, IsClosed=closed, IsWon=won,
             LeadSource=str(self.rng.choice(["Web", "Outbound", "Partner", "Event", "Referral"]))
             if opp_type == "New Business" else None,
+            Won_Without_Order__c=False,
             OwnerId=owner, CurrencyIsoCode=cur, Pricebook2Id=self.pricebook_id if lines else None,
             SyncedQuoteId=synced_quote, HasOpportunityLineItem=bool(lines), CreatedDate=created_ts,
             LastModifiedDate=last_mod, SystemModstamp=last_mod, IsDeleted=False)
@@ -490,6 +526,7 @@ class Gen:
             if rdate <= self.last_event_day:
                 it = seat_items[0]
                 cut = max(1, int(it["Quantity"] * self.u(0.1, 0.4)))
+                cut = min(cut, max(1, int(40_000 / max(it["UnitPrice"], 0.01))))
                 red = self.make_order(acct, None, [dict(
                     code=it["_code"], qty=-cut, list=it["ListPrice"], unit=it["UnitPrice"],
                     pbe=it["PricebookEntryId"], orig_item=it["Id"], end=end)], rdate, "Reduction",
@@ -504,9 +541,14 @@ class Gen:
             fit = float(self.rng.lognormal(0, 0.35))
             m = 0
             while add_months(start, m + 1) - DAY <= self.last_event_day and m < 12:
-                ramp = min(1.0, 0.45 + 0.1 * m)
-                order["_usage"].append((add_months(start, m), add_months(start, m + 1) - DAY,
-                                        round(commit["Quantity"] / 12 * ramp * fit * self.u(0.85, 1.15))))
+                ps = add_months(start, m)
+                # Stay under a flat draw, and slow further through 2026 so the
+                # value-weighted gap versus a straight line widens over the year.
+                pace = min(1.05, 0.88 + 0.015 * m)
+                if ps >= dt.date(2026, 1, 1):
+                    pace *= max(0.74, 1.02 - 0.030 * ps.month)
+                order["_usage"].append((ps, add_months(start, m + 1) - DAY,
+                                        round(commit["Quantity"] / 12 * pace * fit * self.u(0.85, 1.15))))
                 m += 1
         acct["won_any"] = True
         # expansion (separate 12-month term; see README: co-terming simplification)
@@ -515,11 +557,16 @@ class Gen:
             if c <= self.last_event_day and c < end:
                 if self.p(0.5) and seat_items:
                     s = seat_items[0]
-                    spec = [[s["_code"], max(5, int(s["Quantity"] * self.u(0.1, 0.4))),
-                             round(100 * (1 - s["UnitPrice"] / s["ListPrice"]))]]
+                    qty = max(5, int(s["Quantity"] * self.u(0.08, 0.25)))
+                    # Keep unnamed add-ons under the planted top movers.
+                    qty = min(qty, max(5, int(180_000 / max(s["UnitPrice"], 0.01))))
+                    spec = [[s["_code"], qty, round(100 * (1 - s["UnitPrice"] / s["ListPrice"]))]]
                 else:
                     base = commit["Quantity"] if commit else 50_000
-                    spec = [["API-COMMIT", int(round(base * self.u(0.25, 1.0), -4)) or 10_000, 5]]
+                    unit = self.pbe[("API-COMMIT", cur)][1]
+                    qty = int(round(base * self.u(0.1, 0.3), -3)) or 10_000
+                    qty = min(qty, max(1000, int(180_000 / max(unit, 0.01))))
+                    spec = [["API-COMMIT", qty, 5]]
                 opp_acct = self.pick_account(acct)
                 opp, lines = self.make_opp(opp_acct, "Expansion", c, self.i(20, 60), spec,
                                            self.cfg["funnel"]["expansion_win_rate"])
@@ -534,11 +581,11 @@ class Gen:
                     continue
                 qty = x.get("_reduced_qty", x["Quantity"])
                 if code == "API-COMMIT":
-                    used = sum(u[2] for u in order["_usage"])
-                    factor = self.u(1.1, 1.8) if used > qty * 0.9 else self.u(0.6, 1.0)
-                    qty = int(round(qty * factor, -4)) or 10_000
+                    lo, hi = self.cfg["funnel"]["renewal_qty_factor"]
+                    qty = int(round(qty * self.u(lo, hi), -3)) or 1000
                 elif code.startswith("SEAT"):
-                    qty = max(1, int(qty * self.u(0.85, 1.3)))
+                    lo, hi = self.cfg["funnel"]["renewal_qty_factor"]
+                    qty = max(1, int(qty * self.u(lo, hi)))
                 disc = max(0, round(100 * (1 - x["UnitPrice"] / x["ListPrice"])) - self.i(0, 3))
                 spec.append([code, qty, disc])
             if spec:
@@ -559,12 +606,16 @@ class Gen:
         if not opp["IsWon"]:
             return None
         mess = self.cfg["mess"]
-        if self.p(mess["won_without_order"]):
+        # Historical misses are cleared within 30 days. Planted rows set _keep_open.
+        if opp.get("_keep_open"):
             opp["_no_order"] = True
-            opp["_billed_anyway"] = self.p(mess["won_without_order_billed"])
+            opp["_billed_anyway"] = False
             opp["_lines"] = lines
             acct["won_any"] = True
             return None
+        if self.p(mess["won_without_order"]) and (self.as_of - opp["CloseDate"]).days <= 30:
+            # Still create the order. Deal Desk does not leave a random miss open.
+            pass
         start = start or opp["CloseDate"] + dt.timedelta(days=self.i(0, 21))
         order = self.make_order(acct, opp, lines, start, order_type, freq)
         if depth < 8:
@@ -576,13 +627,14 @@ class Gen:
         span = (self.last_event_day - self.start).days
         for a in [a for a in self.accounts if a["canonical"] == a["Id"]]:
             # growth-weighted first touch: later months have more activity
-            first = self.start + dt.timedelta(days=int(span * (self.rng.random() ** 0.7)))
+            power = self.cfg["funnel"]["first_touch_power"]
+            first = self.start + dt.timedelta(days=int(span * (self.rng.random() ** power)))
             first = max(first, a["CreatedDate"].date())
             c = first
             while c <= self.last_event_day:
                 acct = self.pick_account(a)
                 opp, lines = self.make_opp(acct, "New Business", c, self.i(*f["sales_cycle_days"]),
-                                           self.nb_lines(a["segment"]), f["new_biz_win_rate"])
+                                           self.nb_lines(a["segment"], c), f["new_biz_win_rate"])
                 if opp["IsWon"]:
                     freq = str(self.rng.choice(["Annual", "Quarterly", "Monthly"], p=[0.55, 0.3, 0.15]))
                     self.book(acct, opp, lines, "New", freq, 0)
@@ -612,7 +664,10 @@ class Gen:
         root = acct["canonical"]
         if root not in self.customers:
             a = next(x for x in self.accounts if x["Id"] == root)
-            cid = self.stripe_id("cus_")
+            if acct.get("case_type") == "story":
+                cid = "cus_story" + acct["Id"][-8:]
+            else:
+                cid = self.stripe_id("cus_")
             t = self.ts(max(acct["CreatedDate"].date(), self.start))
             self.customers[root] = cid
             self.rows("customer").append(dict(
@@ -628,14 +683,17 @@ class Gen:
         iid = self.stripe_id("in_")
         total = sum(minor(l[3], cur) for l in lines)
         true_order_id = order_id
-        if order_id and self.p(self.cfg["mess"]["invoice_missing_order_ref"]):
+        protected = order_id in getattr(self, "_protected_orders", ())
+        if order_id and not protected and self.p(self.cfg["mess"]["invoice_missing_order_ref"]):
             order_id = None
         inv = dict(id=iid, customer_id=cust, number=f"{cust[4:12].upper()}-{self.seq('inv_' + cust):04d}",
                    status="open", billing_reason=reason, collection_method="send_invoice",
                    currency=cur.lower(), subtotal=total, total=total, amount_due=max(total, 0), amount_paid=0,
                    amount_remaining=max(total, 0), created=created, period_start=period_start,
                    period_end=period_end, due_date=created + dt.timedelta(days=30),
-                   status_transitions_paid_at=None, metadata_salesforce_order_id=order_id,
+                   status_transitions_paid_at=None,
+                   status_transitions_marked_uncollectible_at=None,
+                   metadata_salesforce_order_id=order_id,
                    _true_order_id=true_order_id, _updated=created)
         self.rows("invoice").append(inv)
         for desc, qty, unit, amt, code, item_id, prorate in lines:
@@ -665,6 +723,10 @@ class Gen:
                 pe = add_months(o["EffectiveDate"], k + n) - DAY
                 if ps > self.last_event_day or (o["_cancel"] and ps >= o["_cancel"]):
                     break
+                if o.get("_invoice_from") and ps < o["_invoice_from"]:
+                    k += n
+                    first = False
+                    continue
                 lines = []
                 for it in o["_items"]:
                     code = it["_code"]
@@ -738,50 +800,76 @@ class Gen:
         self.build_payments()
 
     def build_payments(self):
-        profile = {}
+        """Net-30. Most pay by the due date; a minority are 1–30 or 31–90 days late;
+        a small share goes past 90. The late share rises from March 2026. Anything
+        still open 180 days after the invoice date is written off."""
         for inv in self.rows("invoice"):
-            if inv.get("_void") or inv["amount_due"] <= 0:
+            if inv.get("_void") or inv["status"] == "void" or inv["amount_due"] <= 0:
                 continue
-            cust = inv["customer_id"]
-            if cust not in profile:
-                profile[cust] = str(self.rng.choice(["good", "slow", "bad"], p=[0.8, 0.15, 0.05]))
-            prof = profile[cust]
-            due, cur = inv["amount_due"], inv["currency"]
-            if prof == "bad" and self.p(0.4):
-                attempts = []
+            cust, due, cur = inv["customer_id"], inv["amount_due"], inv["currency"]
+            created = inv["created"]
+            created_d = created.date() if isinstance(created, dt.datetime) else created
+            if created_d < dt.date(2026, 3, 1):
+                weights = [0.90, 0.07, 0.02, 0.01]
+            elif created_d < dt.date(2026, 5, 1):
+                weights = [0.78, 0.12, 0.06, 0.04]
+            elif created_d < dt.date(2026, 7, 1):
+                weights = [0.62, 0.18, 0.12, 0.08]
             else:
-                days = {"good": (0, 25), "slow": (20, 75), "bad": (40, 150)}[prof]
-                pay = inv["created"] + dt.timedelta(days=self.i(*days), hours=self.i(0, 8))
-                attempts = []
-                if self.p(self.cfg["mess"]["failed_then_retried"]):
-                    attempts.append((pay, 0, "failed"))
-                    pay = pay + dt.timedelta(days=self.i(3, 10))
-                if self.p(self.cfg["mess"]["partial_payment"]):
-                    part = int(due * self.u(0.3, 0.8))
-                    attempts.append((pay, part, "succeeded"))
-                    if self.p(0.5):
-                        attempts.append((pay + dt.timedelta(days=self.i(15, 45)), due - part, "succeeded"))
-                else:
-                    attempts.append((pay, due, "succeeded"))
-            paid, last = 0, inv["created"]
-            for t, amt, status in attempts:
-                if t > self.billing_sync:
-                    continue
+                weights = [0.46, 0.24, 0.20, 0.10]
+            total = sum(weights)
+            kind = str(self.rng.choice(
+                ["on_time", "late_30", "late_90", "past_90"], p=[w / total for w in weights]))
+            # Large invoices pay on time so one of them cannot dominate a bucket.
+            if kind != "on_time" and due > 8_000_000 and cur == "usd":
+                kind = "on_time"
+            if kind == "on_time":
+                lag = self.i(24, 30)
+            elif kind == "late_30":
+                lag = self.i(35, 60)
+            elif kind == "late_90":
+                lag = self.i(70, 120)
+            else:
+                lag = self.i(150, 179)
+            lag = min(lag, 179)
+            pay_at = created + dt.timedelta(days=lag, hours=self.i(8, 16))
+            writeoff_at = created + dt.timedelta(days=181)
+            paid, last = 0, created
+            if pay_at <= self.billing_sync and pay_at < writeoff_at:
                 self.rows("charge").append(dict(
                     id=self.stripe_id("ch_"), invoice_id=inv["id"], customer_id=cust,
-                    amount=amt if status == "succeeded" else due, amount_refunded=0, currency=cur, status=status,
-                    paid=status == "succeeded", failure_code=None if status == "succeeded" else str(
-                        self.rng.choice(["card_declined", "insufficient_funds", "expired_card"])),
+                    amount=due, amount_refunded=0, currency=cur, status="succeeded",
+                    paid=True, failure_code=None,
                     payment_method_type="card" if due < 1_000_000 else "ach_credit_transfer",
-                    created=t, _updated=t))
-                if status == "succeeded":
-                    paid += amt
-                last = max(last, t)
+                    created=pay_at, _updated=pay_at))
+                paid, last = due, pay_at
             inv.update(amount_paid=paid, amount_remaining=due - paid, _updated=last)
             if paid >= due:
                 inv.update(status="paid", status_transitions_paid_at=last)
-            elif prof == "bad" and inv["created"] < self.billing_sync - dt.timedelta(days=120):
-                inv.update(status="uncollectible", _updated=inv["created"] + dt.timedelta(days=120))
+            elif writeoff_at <= self.billing_sync:
+                # Leave the balance on the invoice. Aging drops it only after this date.
+                inv.update(
+                    status="uncollectible",
+                    status_transitions_marked_uncollectible_at=writeoff_at,
+                    _updated=writeoff_at)
+
+
+    def mark_won_without_order(self):
+        """About 4% of wins in the trailing 90 days arrived without an order.
+
+        The flag is historical: an order may exist now. The still-open ones are the
+        planted Deal Desk rows. The hash does not consume the simulation RNG.
+        """
+        import zlib
+
+        cutoff = self.as_of - dt.timedelta(days=90)
+        for opp in self.rows("opportunity"):
+            arrived = bool(opp.get("_keep_open"))
+            close = opp.get("CloseDate")
+            if opp.get("IsWon") and close and close >= cutoff and not arrived:
+                if zlib.crc32(str(opp["Id"]).encode()) % 1000 < 43:
+                    arrived = True
+            opp["Won_Without_Order__c"] = arrived
 
     # ------------------------------------------------------------ load metadata + write
     def finalize_accounts(self):
@@ -795,7 +883,9 @@ class Gen:
             t = a["CreatedDate"]
             self.rows("account").append(dict(
                 Id=a["Id"], Name=a["Name"], Type=a["Type"], Industry=a["Industry"], Website=a["Website"],
-                NumberOfEmployees=a["NumberOfEmployees"], BillingCountry=a["BillingCountry"],
+                NumberOfEmployees=a["NumberOfEmployees"], Segment__c=a.get("segment"),
+                Region__c=a.get("region") or region_for(a["BillingCountry"]),
+                BillingCountry=a["BillingCountry"],
                 BillingState=a["BillingState"], CurrencyIsoCode=a["CurrencyIsoCode"], OwnerId=a["OwnerId"],
                 CreatedDate=t, LastModifiedDate=t, SystemModstamp=t, IsDeleted=False,
                 ParentId=a.get("ParentId")))
@@ -818,9 +908,10 @@ class Gen:
                 t = mod + dt.timedelta(minutes=self.i(2, 50))
                 r["_late_arrival"] = None
                 if tbl in ("opportunity", "order", "order_item", "invoice", "charge") and \
-                        mod < sync - dt.timedelta(days=21) and self.p(late):
-                    t = mod + dt.timedelta(days=self.i(3, 20), minutes=self.i(0, 600))
-                    r["_late_arrival"] = t
+                        mod < sync - dt.timedelta(days=30) and self.p(late):
+                    t = mod + dt.timedelta(days=self.i(3, 14), minutes=self.i(0, 600))
+                    if t < dt.datetime.combine(self.as_of - dt.timedelta(days=8), dt.time()):
+                        r["_late_arrival"] = t
         self.build_connector_syncs()
         self.touch_open_opportunities()
         for tbl in sf_tables + ["customer", "invoice", "invoice_line_item", "charge", "usage_record_summary"]:
@@ -889,7 +980,7 @@ class Gen:
     # New account rows are appended. About five subsidiaries also get one
     # Closed Won opportunity and order, appended to those tables.
     def add_hard_dedup_cases(self):
-        eligible = [a for a in self.accounts if a["canonical"] == a["Id"]]
+        eligible = [a for a in self.accounts if a["canonical"] == a["Id"] and a.get("case_type") != "story"]
         assert len(eligible) >= 60, "not enough canonical accounts for hard dedup cases"
         picked = [eligible[int(i)] for i in self.identity.permutation(len(eligible))[:60]]
         collisions = [self._collision_account(parent) for parent in picked[0:15]]
@@ -916,6 +1007,7 @@ class Gen:
         a = dict(
             Id=self.sfid("001"), Name=name, base=parent["base"], Website=website,
             Industry=parent["Industry"], NumberOfEmployees=None, segment=parent["segment"],
+            region=region_for(country),
             BillingCountry=country, BillingState=billing_state, CurrencyIsoCode=currency,
             OwnerId=owner, CreatedDate=created, dup=None, canonical=canonical,
             last_touch=created, won_any=False, active_contracts=0, case_type=case_type,
@@ -930,7 +1022,9 @@ class Gen:
         t = a["CreatedDate"]
         row = dict(
             Id=a["Id"], Name=a["Name"], Type=a["Type"], Industry=a["Industry"], Website=a["Website"],
-            NumberOfEmployees=a["NumberOfEmployees"], BillingCountry=a["BillingCountry"],
+            NumberOfEmployees=a["NumberOfEmployees"], Segment__c=a.get("segment"),
+            Region__c=a.get("region") or region_for(a["BillingCountry"]),
+            BillingCountry=a["BillingCountry"],
             BillingState=a["BillingState"], CurrencyIsoCode=a["CurrencyIsoCode"], OwnerId=a["OwnerId"],
             CreatedDate=t, LastModifiedDate=t, SystemModstamp=t, IsDeleted=False, ParentId=a.get("ParentId"))
         row["_loaded_at"] = self.snap_to_sync(self.sf_sync, t)
@@ -1049,6 +1143,8 @@ class Gen:
                 df = pd.DataFrame(rows)
                 df.to_csv(out / system / f"{tbl}.csv", index=False)
                 summary.append((system, tbl, len(df)))
+        clock = out / "fivetran_log" / "extract_clock.csv"
+        pd.DataFrame([{"now": fmt(self.now)}]).to_csv(clock, index=False)
         self.write_truth(out.parent / "truth")
         return summary
 
@@ -1078,7 +1174,7 @@ def main():
     cfg = yaml.safe_load(open(args.config))
     if args.as_of:
         as_of = dt.date.fromisoformat(args.as_of)
-        now = dt.datetime.combine(as_of, dt.time(6))
+        now = dt.datetime.combine(as_of, dt.time(17, 5))
     else:
         now = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None, second=0, microsecond=0)
         as_of = now.date()
@@ -1086,7 +1182,12 @@ def main():
     g.build_reference()
     g.build_accounts()
     g.build_pipeline()
+    from story import plant_story
+    plant_story(g)
     g.build_billing()
+    from story import plant_billing_defects
+    plant_billing_defects(g)
+    g.mark_won_without_order()
     g.finalize_accounts()
     g.assign_loaded_at()
     g.add_hard_dedup_cases()

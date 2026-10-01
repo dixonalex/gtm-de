@@ -10,6 +10,8 @@ renamed as (
         cast("Industry" as varchar) as industry,
         cast(nullif("Website", '') as varchar) as website,
         cast("NumberOfEmployees" as bigint) as number_of_employees,
+        cast("Segment__c" as varchar) as segment,
+        cast("Region__c" as varchar) as region,
         cast("BillingCountry" as varchar) as billing_country,
         cast(nullif("BillingState", '') as varchar) as billing_state,
         cast("CurrencyIsoCode" as varchar) as currency_iso_code,

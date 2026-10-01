@@ -44,4 +44,148 @@ seeds:
           - not_null
           - accepted_values:
               arguments:
-                values: ['simulated_steward']
+                values: ['simulated_steward', 'A. Dixon']
+
+  - name: policy_thresholds
+    description: Materiality bands, SLA days, and freshness hours the story's tests and pages use.
+    columns:
+      - name: threshold_key
+        data_tests: [not_null, unique]
+      - name: threshold_value
+        data_tests: [not_null]
+
+  - name: close_calendar
+    description: >
+      Month-end and the date that month closes. The close date is the 3rd of the
+      following month, moved to Monday when that day is a weekend. A month is closed
+      only when close_date is on or before the extract as-of date.
+    config:
+      column_types:
+        month_end: date
+        close_date: date
+    columns:
+      - name: month_end
+        data_tests: [not_null, unique]
+      - name: close_date
+        data_tests: [not_null]
+
+  - name: plan_monthly
+    description: >
+      Plan ARR, net new, and bookings by segment and month, plus the NRR and GRR plan
+      rates. scripts/derive_story_seeds.py overwrites this from warehouse actuals minus
+      the scripted gaps. Do not hand-edit the numbers.
+    config:
+      column_types:
+        month_end: date
+        arr_usd: double
+        net_new_usd: double
+        bookings_usd: double
+        nrr_plan: double
+        grr_plan: double
+    columns:
+      - name: month_end
+        data_tests: [not_null]
+      - name: segment
+        data_tests: [not_null]
+
+  - name: quota_quarterly
+    description: >
+      Quarterly quota and the scripted commit call by segment. The script sets quota
+      so won-to-quota is the contract gap, and writes the commit call as the contract path.
+    config:
+      column_types:
+        quarter_start: date
+        quota_usd: double
+        commit_usd: double
+    columns:
+      - name: quarter_start
+        data_tests: [not_null]
+      - name: segment
+        data_tests: [not_null]
+
+  - name: forecast_call_weekly
+    description: Weekly company commit and best-case forecast call for Q3 FY26. Scripted, not the open pipeline.
+    config:
+      column_types:
+        week_start: date
+        commit_usd: double
+        best_case_usd: double
+    columns:
+      - name: week_start
+        data_tests: [not_null, unique]
+      - name: week_index
+        data_tests: [not_null]
+
+  - name: variance_commentary
+    description: Commentary attached to plan variances, including the bookings request that has no text yet.
+    config:
+      column_types:
+        updated_on: date
+        requested_on: date
+        due_on: date
+    columns:
+      - name: metric
+        data_tests: [not_null]
+
+  - name: dq_incidents
+    description: Open data incidents at the extract clock. Owned by A. Dixon, response SLA 4 hours.
+    config:
+      column_types:
+        opened_at: timestamp
+    columns:
+      - name: incident_key
+        data_tests: [not_null, unique]
+      - name: owner
+        data_tests: [not_null]
+
+  - name: dq_test_history
+    description: >
+      Simulated test-failure counts for the last 30 days, by family. This is not the
+      live dbt run. It exists so the data-health page can draw a history.
+    config:
+      column_types:
+        failed_on: date
+    columns:
+      - name: family
+        data_tests: [not_null]
+      - name: failure_count
+        data_tests: [not_null]
+
+  - name: model_page_map
+    description: Which designed page each source or model feeds, and which connector's freshness it inherits.
+    columns:
+      - name: object_name
+        data_tests: [not_null]
+      - name: page_name
+        data_tests: [not_null]
+      - name: upstream
+        data_tests: [not_null]
+
+  - name: chart_events
+    description: Dated annotations drawn on the ARR trajectory.
+    config:
+      column_types:
+        event_date: date
+    columns:
+      - name: event_date
+        data_tests: [not_null]
+      - name: label
+        data_tests: [not_null]
+
+  - name: dq_test_results_latest
+    description: >
+      Copy of the latest dbt test results, written by scripts/load_dq_test_results.py
+      so dq_model_health can read them as a seed on the next run.
+    config:
+      column_types:
+        name: varchar
+        model: varchar
+        severity: varchar
+        status: varchar
+        failures: bigint
+        run_at: timestamp
+    columns:
+      - name: name
+        data_tests: [not_null]
+      - name: status
+        data_tests: [not_null]

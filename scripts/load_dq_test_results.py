@@ -1,5 +1,6 @@
 """Load the latest dbt test results into dq.dq_test_results."""
 
+import csv
 import json
 from pathlib import Path
 
@@ -63,6 +64,11 @@ def main() -> None:
         rows,
     )
     con.close()
+    seed = ROOT / "dbt" / "seeds" / "dq_test_results_latest.csv"
+    with seed.open("w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["name", "model", "severity", "status", "failures", "run_at"])
+        w.writerows(rows)
 
 
 if __name__ == "__main__":

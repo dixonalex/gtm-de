@@ -31,17 +31,14 @@ fx as (
     from {{ ref('int_fx__daily_rates') }}
 ),
 
+-- Only months whose close date has arrived. September stays out of this fact.
 month_ends as (
-    select cast(
-        date_trunc('month', gs) + interval 1 month - interval 1 day
-        as date
-    ) as month_end
-    from generate_series(
-        date_trunc('month', (select min(effective_date) from orders)),
-        date_trunc('month', {{ as_of_date() }}),
-        interval 1 month
-    ) t(gs)
-    where cast(date_trunc('month', gs) + interval 1 month - interval 1 day as date) <= {{ as_of_date() }}
+    select month_end
+    from {{ ref('close_calendar') }}
+    where close_date <= {{ as_of_date() }}
+      and month_end >= (
+          select date_trunc('month', min(effective_date)) from orders
+      )
 ),
 
 -- USD is locked at booking date so a renewal does not revalue, and a same-stock renewal is not churn + new.
@@ -179,8 +176,9 @@ position as (
     left join overage_rate r
         on s.master_account_id = r.master_account_id
        and s.month_end = r.month_end
-)
+),
 
+classified as (
 select
     master_account_id,
     ultimate_parent_account_id,
@@ -223,3 +221,25 @@ select
         else 0
     end as arr_reactivation_usd
 from position
+)
+
+select
+    c.master_account_id,
+    c.ultimate_parent_account_id,
+    a.segment,
+    a.region,
+    c.month_end,
+    c.seats_arr_usd,
+    c.support_arr_usd,
+    c.commit_arr_usd,
+    c.committed_arr_usd,
+    c.usage_overage_run_rate_usd,
+    c.opening_arr_usd,
+    c.arr_new_usd,
+    c.arr_expansion_usd,
+    c.arr_contraction_usd,
+    c.arr_churn_usd,
+    c.arr_reactivation_usd
+from classified c
+left join {{ ref('stg_salesforce__account') }} a
+    on c.master_account_id = a.account_id

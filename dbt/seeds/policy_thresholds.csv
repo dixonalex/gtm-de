@@ -1,0 +1,16 @@
+threshold_key,threshold_value
+materiality_balance_pct,0.01
+materiality_flow_pct,0.05
+tieout_tolerance_pct,0.01
+collections_over90_max_pct_of_ar,0.02
+dso_max_days,45
+commit_burn_band_pts,5
+sla_won_without_order_bd,3
+sla_amount_mismatch_bd,3
+sla_invoice_unmatched_bd,5
+sla_reduction_approval_bd,5
+sla_cancelled_still_invoicing_bd,2
+sla_invoicing_bd,5
+sla_incident_response_hours,4
+freshness_salesforce_hours,2
+freshness_stripe_hours,24

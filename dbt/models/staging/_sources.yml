@@ -100,3 +100,19 @@ sources:
             error_after: {count: 48, period: hour}
             filter: "connector_id = 'stripe' and status = 'SUCCESSFUL'"
           loaded_at_field: sync_end
+      - name: extract_clock
+        description: One row, the generator's now. Freshness ages are measured against this clock.
+        meta:
+          external_location: "{{ var('data_dir', env_var('GTM_DATA_DIR', flags.LOG_PATH.rsplit('/logs', 1)[0] ~ '/../data')) }}/raw/fivetran_log/extract_clock.csv"
+        config:
+          freshness: null
+
+  - name: story
+    description: Planted story events the random extract cannot reconstruct, including Deal Desk items already cleared.
+    meta:
+      external_location: "{{ var('data_dir', env_var('GTM_DATA_DIR', flags.LOG_PATH.rsplit('/logs', 1)[0] ~ '/../data')) }}/raw/story/{name}.csv"
+    tables:
+      - name: deal_desk_exception
+        description: Open and resolved Deal Desk exceptions.
+        config:
+          freshness: null

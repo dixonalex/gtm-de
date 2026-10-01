@@ -5,6 +5,9 @@ models:
     description: >
       One row per order item, plus an offsetting cancellation row. Booking date is the
       opportunity close date, or the order effective date when there is no opportunity.
+      Bookings are closed-won new and expansion ACV on that close date. Committed ARR
+      in fct_arr_monthly is activated orders, so a month's bookings can exceed its new
+      and expansion ARR when the order activates later.
       Cancel date is Order.Cancelled_Date__c. USD is locked at the booking date.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
@@ -98,8 +101,11 @@ models:
 
   - name: fct_arr_monthly
     description: >
-      Committed ARR by billing master and month-end, with the master's corporate parent
-      for a separate rollup. Stock is active recurring items; reductions enter on their
+      Committed ARR by billing master and closed month-end, with the master's corporate parent
+      for a separate rollup. ARR is activated recurring orders, which is a different date
+      from bookings (closed-won new and expansion ACV on the opportunity close date).
+      A month is included only after its close date. Segment and region
+      come from the master account. Stock is active recurring items; reductions enter on their
       effective date, and a cancelled order drops out on its cancel date. A renewal that
       starts the day after the prior term ends stays in stock at month-end, so it is not
       churn plus new. Overage run-rate is trailing three calendar months times four and

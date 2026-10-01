@@ -1,0 +1,14 @@
+object_name,object_kind,page_name,upstream
+salesforce,source,Executive,salesforce
+salesforce,source,Sales,salesforce
+salesforce,source,Deal Desk,salesforce
+stripe,source,Finance,stripe
+stripe,source,Deal Desk,stripe
+fct_bookings,model,Executive,salesforce
+fct_bookings,model,Sales,salesforce
+fct_bookings,model,Finance,salesforce
+fct_billings,model,Finance,stripe
+rpt_bookings_to_billings,model,Finance,salesforce
+rpt_bookings_to_billings,model,Deal Desk,salesforce
+fct_arr_monthly,model,Executive,salesforce
+fct_pipeline_snapshot,model,Sales,salesforce

@@ -18,15 +18,11 @@ jobs:
 
       - run: uv sync --frozen
 
-      - run: uv run python generator/generate.py
+      - name: Build the pinned story extract
+        run: make AS_OF=2026-09-30 all
 
-      - name: dbt deps
-        working-directory: dbt
-        run: uv run --project ${{ github.workspace }} dbt deps --profiles-dir .
-
-      - name: dbt build
-        working-directory: dbt
-        run: uv run --project ${{ github.workspace }} dbt build --profiles-dir .
+      - name: Story check
+        run: make story-check
 
       - name: Export eval tables
         working-directory: dbt
@@ -38,10 +34,6 @@ jobs:
           con.execute(\"copy eval.eval_match_misses to 'eval_match_misses.csv' (header, delimiter ',')\")
           con.close()
           "
-
-      - name: dbt source freshness
-        working-directory: dbt
-        run: uv run --project ${{ github.workspace }} dbt source freshness --profiles-dir .
 
       - uses: actions/upload-artifact@v4
         if: always()

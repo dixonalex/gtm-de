@@ -21,6 +21,7 @@ renamed as (
         cast(period_end as date) as period_end,
         cast(due_date as timestamp) as due_date,
         cast(status_transitions_paid_at as timestamp) as status_transitions_paid_at,
+        cast(status_transitions_marked_uncollectible_at as timestamp) as marked_uncollectible_at,
         cast(nullif(metadata_salesforce_order_id, '') as varchar) as metadata_salesforce_order_id,
         cast(_loaded_at as timestamp) as _loaded_at
     from source

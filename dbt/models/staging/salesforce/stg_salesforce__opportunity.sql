@@ -15,6 +15,7 @@ renamed as (
         cast("CloseDate" as date) as close_date,
         cast("IsClosed" as boolean) as is_closed,
         cast("IsWon" as boolean) as is_won,
+        cast("Won_Without_Order__c" as boolean) as won_without_order,
         cast(nullif("LeadSource", '') as varchar) as lead_source,
         cast("OwnerId" as varchar) as owner_id,
         cast("CurrencyIsoCode" as varchar) as currency_iso_code,

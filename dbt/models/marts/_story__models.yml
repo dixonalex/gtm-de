@@ -1,0 +1,161 @@
+version: 2
+
+models:
+  - name: fct_arr_bridge
+    description: >
+      Closed-month ARR bridge by segment and region. The movements sum to fct_arr_monthly.
+    columns:
+      - name: month_end
+        data_tests: [not_null]
+      - name: committed_arr_usd
+        data_tests: [not_null]
+
+  - name: fct_arr_movement
+    description: Account-level ARR movements for closed months. Top movers and the account drill read this.
+    columns:
+      - name: master_account_id
+        data_tests: [not_null]
+      - name: month_end
+        data_tests: [not_null]
+
+  - name: fct_nrr_grr
+    description: >
+      Trailing twelve-month net and gross retention. The cohort is every master with ARR
+      twelve months earlier. GRR caps each account at its starting ARR.
+    columns:
+      - name: month_end
+        data_tests: [not_null, unique]
+      - name: nrr
+        data_tests: [not_null]
+      - name: grr
+        data_tests: [not_null]
+
+  - name: fct_bookings_monthly
+    description: >
+      New and expansion ACV by close month and segment. This is bookings (Salesforce
+      close date), not activated-order ARR. A won deal whose order activates the next
+      month is booked here and enters fct_arr_monthly later.
+    columns:
+      - name: month_end
+        data_tests: [not_null]
+      - name: bookings_acv_usd
+        data_tests: [not_null]
+
+  - name: fct_forecast_call
+    description: >
+      Weekly commit and best-case call for Q3. The shape follows the contract path
+      (peak in week 5, then a slide). The level is scaled so the week-13 commit is
+      91% of quota and best case is 97%.
+    columns:
+      - name: week_start
+        data_tests: [not_null, unique]
+      - name: commit_usd
+        data_tests: [not_null]
+
+  - name: fct_slipped_deals
+    description: >
+      Open opportunities whose close date moved out of the current quarter during the
+      latest week, with the number of times the close date has moved.
+    columns:
+      - name: opportunity_id
+        data_tests: [not_null, unique]
+      - name: amount_usd
+        data_tests: [not_null]
+      - name: slip_count
+        data_tests: [not_null]
+
+  - name: fct_deal_desk_exception
+    description: >
+      Deal Desk exceptions, open and resolved. age_days is the age at resolution or at
+      the extract clock. Resolved rows carry a fractional age so the median can be 1.6 days.
+    columns:
+      - name: record_id
+        data_tests: [not_null]
+      - name: amount_usd
+        data_tests: [not_null]
+      - name: sla_bd
+        data_tests: [not_null]
+
+  - name: fct_deal_desk_daily
+    description: Open-queue totals at the extract date and the business day before it.
+    columns:
+      - name: snapshot_date
+        data_tests: [not_null, unique]
+      - name: open_count
+        data_tests: [not_null]
+
+  - name: fct_booked_not_billed
+    description: >
+      Activated orders in a closed month that have no invoice with a period starting on
+      or before that month-end. Age is business days from the effective date to month-end,
+      compared with the invoicing SLA.
+    columns:
+      - name: order_id
+        data_tests: [not_null]
+      - name: amount_usd
+        data_tests: [not_null]
+      - name: age_bd
+        data_tests: [not_null]
+
+  - name: fct_bookings_billings_bridge
+    description: >
+      Bookings-to-billings for the latest closed month. renewals_and_existing is the plug
+      that makes the legs equal billings. The other legs are measured.
+    columns:
+      - name: month_end
+        data_tests: [not_null, unique]
+      - name: billings_usd
+        data_tests: [not_null]
+
+  - name: fct_billings_by_currency
+    description: Closed-month billings by invoice currency, in local units and USD, with unmatched USD.
+    columns:
+      - name: currency
+        data_tests: [not_null, unique]
+      - name: billed_usd
+        data_tests: [not_null]
+
+  - name: fct_ar_aging
+    description: >
+      Open accounts receivable at each closed month-end, bucketed from the due date.
+      Uncollectible invoices are written off and excluded. DSO is ending AR divided by
+      trailing-three-month billings, times 91.
+    columns:
+      - name: month_end
+        data_tests: [not_null, unique]
+      - name: ar_usd
+        data_tests: [not_null]
+
+  - name: fct_commit_consumption
+    description: >
+      Active usage commits at each closed month-end. share_consumed and straight_line
+      are both value-weighted. Straight line is the elapsed share of each commit's term.
+    columns:
+      - name: month_end
+        data_tests: [not_null, unique]
+      - name: active_commits
+        data_tests: [not_null]
+
+  - name: fct_arr_plan
+    description: Actual ARR and net new by segment and month against the derived plan.
+    columns:
+      - name: month_end
+        data_tests: [not_null]
+      - name: segment
+        data_tests: [not_null]
+
+  - name: dq_model_health
+    description: >
+      Status of each mapped source or model. The status is the worse of the object's own
+      test results and the freshness of its upstream connector.
+    columns:
+      - name: object_name
+        data_tests: [not_null]
+      - name: page_name
+        data_tests: [not_null]
+      - name: status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['PASS', 'WARN', 'ERROR']
