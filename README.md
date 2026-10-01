@@ -10,4 +10,6 @@ That generates the synthetic data, builds the dbt project, and checks source fre
 
 Explore the warehouse with `make ui` (DuckDB UI), `make lab` (Jupyter in `notebooks/`), or `make docs` (dbt docs). `notebooks/00_connect.ipynb` opens the database read-only.
 
+Explore via gtm_explore.duckdb; it's refreshed on every build and never locks dbt.
+
 DuckDB allows one writer on `dbt/gtm.duckdb`. Close the UI or any other read-write session before `make build` or `make all`.

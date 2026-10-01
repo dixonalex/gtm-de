@@ -18,6 +18,9 @@ predicted_accounts as (
     from {{ ref('int_accounts__deduped_v1') }}
     union all
     select 'v2' as rule_version, account_id, master_account_id
+    from {{ ref('int_accounts__deduped_v2') }}
+    union all
+    select 'v3' as rule_version, account_id, master_account_id
     from {{ ref('int_accounts__deduped') }}
 ),
 
@@ -96,7 +99,7 @@ union all
 
 select
     'invoice_order',
-    'v2',
+    'v3',
     'false_positive',
     invoice_id,
     predicted_id,
@@ -112,7 +115,7 @@ union all
 
 select
     'invoice_order',
-    'v2',
+    'v3',
     'false_negative',
     invoice_id,
     predicted_id,

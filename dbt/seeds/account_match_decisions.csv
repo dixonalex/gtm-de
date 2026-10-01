@@ -1,0 +1,18 @@
+account_id_a,account_id_b,decision,decided_by,decided_at,note
+0018a0000001lBTAAY,0018a000000gUrJAAU,reject,simulated_steward,2026-09-28,simulated from account_duplicates.csv
+0018a0000001xXpAAI,0018a0000014v1mAAA,reject,simulated_steward,2026-09-28,simulated from account_duplicates.csv
+0018a00000023j0AAA,0018a000000DehJAAS,reject,simulated_steward,2026-09-28,simulated from account_duplicates.csv
+0018a00000045OHAAY,0018a000000mB8QAAU,reject,simulated_steward,2026-09-28,simulated from account_duplicates.csv
+0018a0000005iKqAAI,0018a000000CMM0AAO,reject,simulated_steward,2026-09-28,simulated from account_duplicates.csv
+0018a0000007TWJAA2,0018a000000HoD2AAK,reject,simulated_steward,2026-09-28,simulated from account_duplicates.csv
+0018a000000ELxYAAW,0018a000000kcJJAAY,reject,simulated_steward,2026-09-28,simulated from account_duplicates.csv
+0018a000000EYJuAAO,0018a000001C60YAAS,approve,simulated_steward,2026-09-28,simulated from account_duplicates.csv
+0018a000000Iq4XAAS,0018a000000nNIYAA2,reject,simulated_steward,2026-09-28,simulated from account_duplicates.csv
+0018a000000LrXaAAK,0018a000001CKQdAAO,approve,simulated_steward,2026-09-28,simulated from account_duplicates.csv
+0018a000000MvSoAAK,0018a000000QRpkAAG,reject,simulated_steward,2026-09-28,simulated from account_duplicates.csv
+0018a000000NQMhAAO,0018a000000iOHgAAM,reject,simulated_steward,2026-09-28,simulated from account_duplicates.csv
+0018a000000NUU9AAO,0018a000000uDg4AAE,reject,simulated_steward,2026-09-28,simulated from account_duplicates.csv
+0018a000000RdzsAAC,0018a000001CA80AAG,approve,simulated_steward,2026-09-28,simulated from account_duplicates.csv
+0018a000000RuTgAAK,0018a000000edUfAAI,reject,simulated_steward,2026-09-28,simulated from account_duplicates.csv
+0018a000000SPNZAA4,0018a0000014O4AAAU,reject,simulated_steward,2026-09-28,simulated from account_duplicates.csv
+0018a000000SXcTAAW,0018a000001BxleAAC,approve,simulated_steward,2026-09-28,simulated from account_duplicates.csv

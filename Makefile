@@ -13,6 +13,7 @@ endif
 build:
 	cd dbt && uv run --project $(ROOT) dbt deps --profiles-dir .
 	cd dbt && uv run --project $(ROOT) dbt build --profiles-dir .
+	cp -f $(ROOT)/dbt/gtm.duckdb $(ROOT)/dbt/gtm_explore.duckdb
 
 fresh:
 	cd dbt && uv run --project $(ROOT) dbt source freshness --profiles-dir .
@@ -24,7 +25,7 @@ docs:
 	cd dbt && uv run --project $(ROOT) dbt docs serve --profiles-dir .
 
 ui:
-	duckdb -ui dbt/gtm.duckdb
+	duckdb -ui -cmd "ATTACH '$(ROOT)/dbt/gtm_explore.duckdb' AS gtm (READ_ONLY); USE gtm;"
 
 lab:
 	uv run jupyter lab --notebook-dir=notebooks

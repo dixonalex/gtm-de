@@ -28,3 +28,7 @@ models:
     marts:
       +materialized: table
       +schema: marts
+
+seeds:
+  gtm:
+    +schema: seeds

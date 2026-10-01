@@ -11,15 +11,22 @@ models:
 
   - name: int_accounts__match_candidates
     description: >
-      Blocked account pairs and a weighted match score. Auto-merge is the frozen v2 rule.
-      The review tier is applied downstream from match_score.
+      Same-currency account pairs. parent_linked pairs are excluded. match_score starts at
+      the edit ratio (lower is closer); a shared domain or country only breaks ties.
+      Auto-merge remains the frozen v2 rule.
     columns:
       - name: account_id_a
         data_tests: [not_null]
       - name: account_id_b
         data_tests: [not_null]
-      - name: match_score
+      - name: name_edit_distance
         data_tests: [not_null]
+      - name: tier
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['auto_merge', 'review', 'no_match']
 
   - name: int_accounts__deduped_v1
     description: Frozen dedup-rule-v1. Same domain always merges. Used only to keep v1 eval numbers beside v2.
@@ -31,9 +38,9 @@ models:
 
   - name: int_accounts__deduped
     description: >
-      Account to surviving billing entity. A shared website domain merges only when countries
-      are compatible (null matches anything) and neither ParentId points at the other.
-      Otherwise normalized name, unchanged from v1. Survivor is the earliest CreatedDate.
+      Billing-entity master after dedup-rule-v3. Components are v2 auto-merge edges plus
+      approved steward decisions, minus rejected edges. The survivor is the earliest
+      CreatedDate, then account id.
     columns:
       - name: account_id
         data_tests: [unique, not_null]
@@ -49,7 +56,7 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ['website', 'name']
+                values: ['website', 'name', 'decision']
 
   - name: int_accounts__hierarchy
     description: Ultimate corporate parent via ParentId. Distinct from the billing-entity master.

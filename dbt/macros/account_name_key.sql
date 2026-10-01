@@ -20,6 +20,17 @@ nullif(
 )
 {% endmacro %}
 
+{% macro account_match_name(name_column) %}
+nullif(
+    regexp_replace(
+        {{ account_name_key(name_column) }},
+        '(\s+(international|worldwide|global|intl))+$',
+        ''
+    ),
+    ''
+)
+{% endmacro %}
+
 {% macro account_domain_key(website_column) %}
 nullif(
     split_part(

@@ -1,0 +1,47 @@
+version: 2
+
+seeds:
+  - name: account_match_decisions
+    description: >
+      Simulated decisions for half of the review queue, taken in account-id order.
+      decided_by is simulated_steward. approve or reject comes from
+      data/truth/account_duplicates.csv. These are not human RevOps decisions.
+    config:
+      column_types:
+        account_id_a: varchar
+        account_id_b: varchar
+        decision: varchar
+        decided_by: varchar
+        decided_at: date
+        note: varchar
+    columns:
+      - name: account_id_a
+        data_tests:
+          - not_null
+          - relationships:
+              config:
+                severity: warn
+              arguments:
+                to: ref('stg_salesforce__account')
+                field: account_id
+      - name: account_id_b
+        data_tests:
+          - not_null
+          - relationships:
+              config:
+                severity: warn
+              arguments:
+                to: ref('stg_salesforce__account')
+                field: account_id
+      - name: decision
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['approve', 'reject']
+      - name: decided_by
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['simulated_steward']

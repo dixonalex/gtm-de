@@ -1,16 +1,17 @@
 version: 2
 
 models:
-  - name: dq_account_merge_candidates
+  - name: dq_account_review_queue
     description: >
-      Pairs the auto-merge rule did not collapse, with similar normalized names and the same
-      currency, and no ParentId link. Stewardship queue only. It does not set master_account_id.
+      Review-tier pairs that do not yet have a steward decision. Ranked by the combined
+      committed ARR of the two v2 billing masters at the warehouse as-of month, then by
+      match_score (lower is closer). This queue does not set master_account_id.
     columns:
       - name: account_id_a
         data_tests: [not_null]
       - name: account_id_b
         data_tests: [not_null]
-      - name: similarity
+      - name: arr_at_stake_usd
         data_tests: [not_null]
-      - name: reason
-        data_tests: [not_null]
+      - name: queue_rank
+        data_tests: [unique, not_null]

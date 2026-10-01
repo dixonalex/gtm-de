@@ -1,100 +1,110 @@
-with accounts as (
+-- dedup-rule-v3. Components of v2 auto-merge edges plus approved decisions, minus rejected edges.
+with recursive accounts as (
     select
         account_id,
-        name,
-        website,
-        billing_country,
-        parent_id,
         created_date
     from {{ ref('stg_salesforce__account') }}
 ),
 
-normalized as (
+v2 as (
+    select account_id, master_account_id, match_rule
+    from {{ ref('int_accounts__deduped_v2') }}
+),
+
+decisions as (
     select
-        account_id,
-        name,
-        website,
-        billing_country,
-        parent_id,
-        created_date,
-        {{ account_domain_key('website') }} as domain_key,
-        {{ account_name_key('name') }} as name_key
+        least(account_id_a, account_id_b) as account_id_a,
+        greatest(account_id_a, account_id_b) as account_id_b,
+        decision
+    from {{ ref('account_match_decisions') }}
+),
+
+raw_edges as (
+    select
+        least(account_id, master_account_id) as account_id_a,
+        greatest(account_id, master_account_id) as account_id_b
+    from v2
+    where account_id != master_account_id
+
+    union
+
+    select account_id_a, account_id_b
+    from decisions
+    where decision = 'approve'
+),
+
+edges as (
+    select r.account_id_a, r.account_id_b
+    from raw_edges r
+    where not exists (
+        select 1
+        from decisions d
+        where d.decision = 'reject'
+          and d.account_id_a = r.account_id_a
+          and d.account_id_b = r.account_id_b
+    )
+),
+
+undirected as (
+    select account_id_a as src, account_id_b as dst from edges
+    union all
+    select account_id_b, account_id_a from edges
+),
+
+walk as (
+    select
+        account_id as start_id,
+        account_id as reached,
+        cast(account_id as varchar) as path,
+        0 as depth
     from accounts
+
+    union all
+
+    select
+        w.start_id,
+        u.dst,
+        w.path || ',' || u.dst,
+        w.depth + 1
+    from walk w
+    inner join undirected u on u.src = w.reached
+    where w.depth < 12
+      and not contains(',' || w.path || ',', ',' || u.dst || ',')
 ),
 
-domain_root as (
+component as (
     select
-        domain_key,
-        account_id as root_id
-    from normalized
-    where domain_key is not null
-    qualify row_number() over (
-        partition by domain_key
-        order by created_date, account_id
-    ) = 1
+        start_id as account_id,
+        min(reached) as component_id
+    from walk
+    group by start_id
 ),
 
--- Domain merge: same website domain, compatible country, and no ParentId link to the survivor.
-domain_assigned as (
+ranked as (
     select
-        n.account_id,
-        n.domain_key,
-        n.name_key,
-        n.created_date,
-        case
-            when n.domain_key is null then null
-            when (
-                n.billing_country is null
-                or root.billing_country is null
-                or n.billing_country = root.billing_country
-            )
-            and not coalesce(n.parent_id = r.root_id, false)
-            and not coalesce(root.parent_id = n.account_id, false)
-                then r.root_id
-            else n.account_id
-        end as domain_master_id
-    from normalized n
-    left join domain_root r on n.domain_key = r.domain_key
-    left join normalized root on r.root_id = root.account_id
+        c.component_id,
+        a.account_id,
+        row_number() over (
+            partition by c.component_id
+            order by a.created_date, a.account_id
+        ) as rn
+    from component c
+    inner join accounts a on c.account_id = a.account_id
 ),
 
-name_to_domain as (
-    select
-        name_key,
-        min(domain_master_id) as master_account_id
-    from domain_assigned
-    where domain_key is not null
-      and name_key is not null
-    group by name_key
-),
-
-name_only as (
-    select
-        n.account_id,
-        first_value(n.account_id) over (
-            partition by n.name_key
-            order by n.created_date, n.account_id
-        ) as master_account_id
-    from normalized n
-    left join name_to_domain nd on n.name_key = nd.name_key
-    where n.domain_key is null
-      and nd.name_key is null
+survivor as (
+    select component_id, account_id as master_account_id
+    from ranked
+    where rn = 1
 )
 
 select
-    n.account_id,
+    c.account_id,
+    s.master_account_id,
     case
-        when n.domain_key is not null then d.domain_master_id
-        when nd.master_account_id is not null then nd.master_account_id
-        else no.master_account_id
-    end as master_account_id,
-    case
-        when n.domain_key is not null then 'website'
-        else 'name'
+        when s.master_account_id = v2.master_account_id then v2.match_rule
+        else 'decision'
     end as match_rule
-from normalized n
-left join domain_assigned d on n.account_id = d.account_id
-left join name_to_domain nd
-    on n.domain_key is null
-   and n.name_key = nd.name_key
-left join name_only no on n.account_id = no.account_id
+from component c
+inner join survivor s on c.component_id = s.component_id
+inner join v2 on c.account_id = v2.account_id
