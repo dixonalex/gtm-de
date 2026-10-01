@@ -1,0 +1,7 @@
+gtm:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: gtm.duckdb
+      threads: 4

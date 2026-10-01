@@ -1,0 +1,42 @@
+version: 2
+
+sources:
+  - name: salesforce
+    description: Salesforce objects landed as CSV by the synthetic connector. API field names are verbatim.
+    meta:
+      external_location: "../data/raw/salesforce/{name}.csv"
+    config:
+      freshness:
+        warn_after: {count: 6, period: hour}
+        error_after: {count: 24, period: hour}
+      loaded_at_field: _loaded_at
+    tables:
+      - name: user
+      - name: dated_conversion_rate
+      - name: product2
+      - name: pricebook2
+      - name: pricebook_entry
+      - name: account
+      - name: opportunity
+      - name: opportunity_history
+      - name: opportunity_line_item
+      - name: quote
+      - name: quote_line_item
+      - name: order
+      - name: order_item
+
+  - name: billing
+    description: Stripe-shaped billing objects. Amounts are minor units and currency codes are lowercase.
+    meta:
+      external_location: "../data/raw/billing/{name}.csv"
+    config:
+      freshness:
+        warn_after: {count: 24, period: hour}
+        error_after: {count: 48, period: hour}
+      loaded_at_field: _loaded_at
+    tables:
+      - name: customer
+      - name: invoice
+      - name: invoice_line_item
+      - name: charge
+      - name: usage_record_summary

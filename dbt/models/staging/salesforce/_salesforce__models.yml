@@ -1,0 +1,306 @@
+version: 2
+
+models:
+  - name: stg_salesforce__user
+    description: Salesforce User. No IsDeleted column on this object.
+    columns:
+      - name: user_id
+        data_tests: [unique, not_null]
+
+  - name: stg_salesforce__dated_conversion_rate
+    description: Salesforce dated conversion rates. Rate is local units per 1 USD.
+    columns:
+      - name: dated_conversion_rate_id
+        data_tests: [unique, not_null]
+
+  - name: stg_salesforce__product2
+    description: Salesforce Product2.
+    columns:
+      - name: product_id
+        data_tests: [unique, not_null]
+
+  - name: stg_salesforce__pricebook2
+    description: Salesforce Pricebook2.
+    columns:
+      - name: pricebook_id
+        data_tests: [unique, not_null]
+
+  - name: stg_salesforce__pricebook_entry
+    description: Salesforce PricebookEntry, one row per price book, product, and currency.
+    columns:
+      - name: pricebook_entry_id
+        data_tests: [unique, not_null]
+      - name: pricebook_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__pricebook2')
+                field: pricebook_id
+      - name: product_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__product2')
+                field: product_id
+
+  - name: stg_salesforce__account
+    description: Salesforce Account with soft-deleted rows removed.
+    columns:
+      - name: account_id
+        data_tests: [unique, not_null]
+      - name: owner_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__user')
+                field: user_id
+
+  - name: stg_salesforce__opportunity
+    description: Salesforce Opportunity with soft-deleted rows removed.
+    columns:
+      - name: opportunity_id
+        data_tests: [unique, not_null]
+      - name: account_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__account')
+                field: account_id
+      - name: owner_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__user')
+                field: user_id
+      - name: stage_name
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - Prospecting
+                  - Qualification
+                  - Needs Analysis
+                  - Proposal/Price Quote
+                  - Negotiation/Review
+                  - Closed Won
+                  - Closed Lost
+      - name: pricebook_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__pricebook2')
+                field: pricebook_id
+      - name: synced_quote_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__quote')
+                field: quote_id
+
+  - name: stg_salesforce__opportunity_history
+    description: Salesforce OpportunityHistory with soft-deleted rows removed.
+    columns:
+      - name: opportunity_history_id
+        data_tests: [unique, not_null]
+      - name: opportunity_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__opportunity')
+                field: opportunity_id
+      - name: created_by_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__user')
+                field: user_id
+      - name: stage_name
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - Prospecting
+                  - Qualification
+                  - Needs Analysis
+                  - Proposal/Price Quote
+                  - Negotiation/Review
+                  - Closed Won
+                  - Closed Lost
+
+  - name: stg_salesforce__opportunity_line_item
+    description: Salesforce OpportunityLineItem with soft-deleted rows removed.
+    columns:
+      - name: opportunity_line_item_id
+        data_tests: [unique, not_null]
+      - name: opportunity_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__opportunity')
+                field: opportunity_id
+      - name: pricebook_entry_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__pricebook_entry')
+                field: pricebook_entry_id
+      - name: product_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__product2')
+                field: product_id
+
+  - name: stg_salesforce__quote
+    description: Salesforce Quote with soft-deleted rows removed.
+    columns:
+      - name: quote_id
+        data_tests: [unique, not_null]
+      - name: opportunity_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__opportunity')
+                field: opportunity_id
+      - name: account_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__account')
+                field: account_id
+      - name: pricebook_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__pricebook2')
+                field: pricebook_id
+
+  - name: stg_salesforce__quote_line_item
+    description: Salesforce QuoteLineItem with soft-deleted rows removed.
+    columns:
+      - name: quote_line_item_id
+        data_tests: [unique, not_null]
+      - name: quote_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__quote')
+                field: quote_id
+      - name: product_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__product2')
+                field: product_id
+      - name: pricebook_entry_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__pricebook_entry')
+                field: pricebook_entry_id
+
+  - name: stg_salesforce__order
+    description: Salesforce Order, including reduction orders. The source table name is a reserved word; models read it through the external CSV path.
+    columns:
+      - name: order_id
+        data_tests: [unique, not_null]
+      - name: account_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__account')
+                field: account_id
+      - name: pricebook_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__pricebook2')
+                field: pricebook_id
+      - name: opportunity_id
+        description: Null on reduction orders.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__opportunity')
+                field: opportunity_id
+      - name: quote_id
+        description: Null on reduction orders.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__quote')
+                field: quote_id
+      - name: original_order_id
+        description: Set only when is_reduction_order is true.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__order')
+                field: order_id
+      - name: status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Draft', 'Activated', 'Cancelled']
+
+  - name: stg_salesforce__order_item
+    description: Salesforce OrderItem, including negative quantities on reduction orders.
+    columns:
+      - name: order_item_id
+        data_tests: [unique, not_null]
+      - name: order_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__order')
+                field: order_id
+      - name: product_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__product2')
+                field: product_id
+      - name: pricebook_entry_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__pricebook_entry')
+                field: pricebook_entry_id
+      - name: quote_line_item_id
+        description: Null on reduction order items.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__quote_line_item')
+                field: quote_line_item_id
+      - name: original_order_item_id
+        description: Set only on reduction order items.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__order_item')
+                field: order_item_id

@@ -1,0 +1,106 @@
+version: 2
+
+models:
+  - name: stg_billing__customer
+    description: Stripe-shaped customer. Currency is upper-case. metadata_salesforce_account_id may point at a duplicate Account.
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+      - name: metadata_salesforce_account_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__account')
+                field: account_id
+
+  - name: stg_billing__invoice
+    description: Stripe-shaped invoice. Amounts are major currency units. metadata_salesforce_order_id is null when the connector omitted it.
+    columns:
+      - name: invoice_id
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_billing__customer')
+                field: customer_id
+      - name: status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['open', 'paid', 'void', 'uncollectible']
+      - name: metadata_salesforce_order_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__order')
+                field: order_id
+
+  - name: stg_billing__invoice_line_item
+    description: Stripe-shaped invoice line. Amounts are major currency units, including proration credits.
+    columns:
+      - name: invoice_line_item_id
+        data_tests: [unique, not_null]
+      - name: invoice_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_billing__invoice')
+                field: invoice_id
+      - name: metadata_salesforce_order_item_id
+        description: Null on off-process invoices that have no Salesforce order item.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__order_item')
+                field: order_item_id
+
+  - name: stg_billing__charge
+    description: Stripe-shaped charge. Amounts are major currency units.
+    columns:
+      - name: charge_id
+        data_tests: [unique, not_null]
+      - name: invoice_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_billing__invoice')
+                field: invoice_id
+      - name: customer_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_billing__customer')
+                field: customer_id
+      - name: status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['succeeded', 'failed']
+
+  - name: stg_billing__usage_record_summary
+    description: Stripe-shaped usage summary for consumption commits. total_usage is credits, not currency.
+    columns:
+      - name: usage_record_summary_id
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_billing__customer')
+                field: customer_id
+      - name: metadata_salesforce_order_item_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__order_item')
+                field: order_item_id
