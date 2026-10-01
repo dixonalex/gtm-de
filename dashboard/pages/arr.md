@@ -47,6 +47,7 @@ with months as (
     group by month_end
 )
 select
+    strftime(latest.month_end, '%b %Y') as month_label,
     latest.committed_arr_usd as latest_arr,
     abs(latest.committed_arr_usd - prior.committed_arr_usd) / nullif(prior.committed_arr_usd, 0) as growth_pct,
     case
@@ -73,7 +74,7 @@ group by month_end
 order by month_end, product
 ```
 
-## Committed ARR <Value data={arr_headline} column=verb /> <Value data={arr_headline} column=growth_pct fmt=pct0 /> over the last 3 months to <Value data={arr_headline} column=latest_arr fmt=usd1m />
+## Committed ARR · <Value data={arr_headline} column=month_label /> <Value data={arr_headline} column=verb /> <Value data={arr_headline} column=growth_pct fmt=pct0 /> over the last 3 months to <Value data={arr_headline} column=latest_arr fmt=usd1m />
 
 <BarChart
     data={arr_stack}

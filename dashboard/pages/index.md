@@ -48,6 +48,7 @@ with months as (
     group by month_end
 )
 select
+    strftime(latest.month_end, '%b %Y') as month_label,
     latest.committed_arr_usd,
     latest.committed_arr_usd - prior.committed_arr_usd as mom_delta_usd,
     latest.net_new_arr_usd
@@ -57,17 +58,50 @@ where latest.rn = 1
 ```
 
 ```sql pipeline_kpi
-select sum(amount_usd) as open_pipeline_usd
+select
+    strftime(month_end, '%b %Y') as month_label,
+    sum(amount_usd) as open_pipeline_usd
 from gtm.pipeline
 where month_end = (select max(month_end) from gtm.pipeline)
+group by month_end
 ```
 
 ```sql billings_kpi
-select sum(billed_usd) as billings_usd
-from gtm.billings
-where date_trunc('month', invoice_date) = (
-    select max(date_trunc('month', invoice_date)) from gtm.billings
+with closed as (
+    select max(month_end) as month_end from gtm.arr_monthly
 )
+select
+    strftime(closed.month_end, '%b %Y') as month_label,
+    sum(b.billed_usd) as billings_usd
+from gtm.billings b
+cross join closed
+where date_trunc('month', b.invoice_date) = date_trunc('month', closed.month_end)
+group by closed.month_end
+```
+
+```sql mtd
+with closed as (
+    select max(month_end) as month_end from gtm.arr_monthly
+),
+open_month as (
+    select max(cast(date_trunc('month', invoice_date) as date)) as month
+    from gtm.billings
+    where cast(date_trunc('month', invoice_date) as date) > (select date_trunc('month', month_end) from closed)
+)
+select
+    strftime(open_month.month, '%b %Y') as month_label,
+    (
+        select sum(bookings_acv_usd)
+        from gtm.bookings
+        where cast(date_trunc('month', booking_date) as date) = open_month.month
+    ) as bookings_usd,
+    (
+        select sum(billed_usd)
+        from gtm.billings
+        where cast(date_trunc('month', invoice_date) as date) = open_month.month
+    ) as billings_usd
+from open_month
+where open_month.month is not null
 ```
 
 ```sql dq_kpi
@@ -80,7 +114,7 @@ from gtm.test_results
 <BigValue
     data={arr_kpi}
     value=committed_arr_usd
-    title="Committed ARR"
+    title={"Committed ARR · " + arr_kpi[0].month_label}
     fmt=usd1m
     comparison=mom_delta_usd
     comparisonFmt=usd1m
@@ -93,7 +127,7 @@ from gtm.test_results
 <BigValue
     data={arr_kpi}
     value=net_new_arr_usd
-    title="Net new ARR"
+    title={"Net new ARR · " + arr_kpi[0].month_label}
     fmt=usd1m
     link="/arr"
 />
@@ -101,7 +135,7 @@ from gtm.test_results
 <BigValue
     data={pipeline_kpi}
     value=open_pipeline_usd
-    title="Open pipeline"
+    title={"Open pipeline · " + pipeline_kpi[0].month_label}
     fmt=usd1m
     link="/pipeline"
 />
@@ -109,7 +143,7 @@ from gtm.test_results
 <BigValue
     data={billings_kpi}
     value=billings_usd
-    title="Billings"
+    title={"Billings · " + billings_kpi[0].month_label}
     fmt=usd1m
     link="/bookings"
 />
@@ -129,3 +163,9 @@ from gtm.test_results
     fmt=num0
     link="/data-quality"
 />
+
+{#if mtd.length}
+<p style="color:#64748b;font-size:13px;margin:4px 0 0;">
+{mtd[0].month_label} MTD · bookings <Value data={mtd} column=bookings_usd fmt=usd1m /> · billings <Value data={mtd} column=billings_usd fmt=usd1m />
+</p>
+{/if}

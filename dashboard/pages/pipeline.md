@@ -38,9 +38,12 @@ Data as of <Value data={as_of} column=as_of_date />
 {/if}
 
 ```sql pipeline_headline
-select sum(amount_usd) as open_pipeline_usd
+select
+    strftime(month_end, '%b %Y') as month_label,
+    sum(amount_usd) as open_pipeline_usd
 from gtm.pipeline
 where month_end = (select max(month_end) from gtm.pipeline)
+group by month_end
 ```
 
 ```sql pipeline_by_forecast
@@ -53,7 +56,7 @@ group by month_end, forecast_category
 order by month_end
 ```
 
-## Open pipeline is <Value data={pipeline_headline} column=open_pipeline_usd fmt=usd1m /> at the latest snapshot
+## Open pipeline · <Value data={pipeline_headline} column=month_label /> is <Value data={pipeline_headline} column=open_pipeline_usd fmt=usd1m />
 
 <BarChart
     data={pipeline_by_forecast}

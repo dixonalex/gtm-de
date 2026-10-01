@@ -38,27 +38,73 @@ Data as of <Value data={as_of} column=as_of_date />
 {/if}
 
 ```sql monthly
+with closed as (
+    select date_trunc('month', max(month_end)) as month_start
+    from gtm.arr_monthly
+)
 select cast(date_trunc('month', booking_date) as date) as month, sum(bookings_acv_usd) as usd, 'Bookings ACV' as measure
 from gtm.bookings
+where date_trunc('month', booking_date) <= (select month_start from closed)
 group by 1
 union all
 select cast(date_trunc('month', invoice_date) as date), sum(billed_usd), 'Billings'
 from gtm.billings
+where date_trunc('month', invoice_date) <= (select month_start from closed)
 group by 1
 order by month
 ```
 
 ```sql latest_compare
-with last_month as (
-    select max(cast(date_trunc('month', invoice_date) as date)) as month
-    from gtm.billings
+with closed as (
+    select max(month_end) as month_end from gtm.arr_monthly
 )
 select
-    (select sum(bookings_acv_usd) from gtm.bookings where cast(date_trunc('month', booking_date) as date) = (select month from last_month)) as bookings_usd,
-    (select sum(billed_usd) from gtm.billings where cast(date_trunc('month', invoice_date) as date) = (select month from last_month)) as billings_usd
+    strftime(closed.month_end, '%b %Y') as month_label,
+    (
+        select sum(bookings_acv_usd)
+        from gtm.bookings
+        where date_trunc('month', booking_date) = date_trunc('month', closed.month_end)
+    ) as bookings_usd,
+    (
+        select sum(billed_usd)
+        from gtm.billings
+        where date_trunc('month', invoice_date) = date_trunc('month', closed.month_end)
+    ) as billings_usd
+from closed
 ```
 
-## Latest month bookings ACV were <Value data={latest_compare} column=bookings_usd fmt=usd1m /> against <Value data={latest_compare} column=billings_usd fmt=usd1m /> of billings
+```sql mtd
+with closed as (
+    select max(month_end) as month_end from gtm.arr_monthly
+),
+open_month as (
+    select max(cast(date_trunc('month', invoice_date) as date)) as month
+    from gtm.billings
+    where cast(date_trunc('month', invoice_date) as date) > (select date_trunc('month', month_end) from closed)
+)
+select
+    strftime(open_month.month, '%b %Y') as month_label,
+    (
+        select sum(bookings_acv_usd)
+        from gtm.bookings
+        where cast(date_trunc('month', booking_date) as date) = open_month.month
+    ) as bookings_usd,
+    (
+        select sum(billed_usd)
+        from gtm.billings
+        where cast(date_trunc('month', invoice_date) as date) = open_month.month
+    ) as billings_usd
+from open_month
+where open_month.month is not null
+```
+
+## <Value data={latest_compare} column=month_label /> bookings ACV were <Value data={latest_compare} column=bookings_usd fmt=usd1m /> against <Value data={latest_compare} column=billings_usd fmt=usd1m /> of billings
+
+{#if mtd.length}
+<p style="color:#64748b;font-size:13px;margin:0 0 12px;">
+{mtd[0].month_label} MTD · bookings <Value data={mtd} column=bookings_usd fmt=usd1m /> · billings <Value data={mtd} column=billings_usd fmt=usd1m />
+</p>
+{/if}
 
 <BarChart
     data={monthly}
