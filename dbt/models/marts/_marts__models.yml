@@ -1,0 +1,155 @@
+version: 2
+
+models:
+  - name: fct_bookings
+    description: >
+      One row per order item, plus an offsetting cancellation row. Booking date is the
+      opportunity close date, or the order effective date when there is no opportunity.
+      Cancel date is the cancelled order's last modified date. USD is locked at the booking date.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - order_item_id
+              - booking_type
+    columns:
+      - name: order_item_id
+        data_tests: [not_null]
+      - name: order_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__order')
+                field: order_id
+      - name: master_account_id
+        data_tests: [not_null]
+      - name: booking_type
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['new', 'expansion', 'renewal', 'reduction', 'cancellation']
+      - name: booking_date
+        data_tests: [not_null]
+      - name: bookings_acv_usd
+        data_tests: [not_null]
+      - name: one_time_usd
+        data_tests: [not_null]
+
+  - name: fct_billings
+    description: >
+      Invoice lines in USD, excluding voids. paid_usd allocates the invoice amount_paid
+      across lines by amount. Overage is flagged and is not part of committed ARR.
+    columns:
+      - name: invoice_line_item_id
+        data_tests: [unique, not_null]
+      - name: invoice_id
+        data_tests: [not_null]
+      - name: billed_usd
+        data_tests: [not_null]
+      - name: paid_usd
+        data_tests: [not_null]
+      - name: is_overage
+        data_tests: [not_null]
+
+  - name: rpt_bookings_to_billings
+    description: >
+      Order contract value against the billing schedule expected through today, and invoices
+      matched to the order. Overage is reported beside the variance, not inside it.
+    columns:
+      - name: order_id
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__order')
+                field: order_id
+      - name: status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['on_schedule', 'under_billed', 'over_billed', 'cancelled', 'draft']
+      - name: contract_value_usd
+        data_tests: [not_null]
+      - name: variance_usd
+        data_tests: [not_null]
+
+  - name: rpt_quote_to_cash_exceptions
+    description: >
+      Closed Won with no order, unmatched invoices, and Closed Won amounts that differ from
+      the opportunity lines. invoiced_anyway is set when an unmatched invoice's customer
+      rolls up to the same billing master.
+    columns:
+      - name: exception_type
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['closed_won_without_order', 'unmatched_invoice', 'amount_line_override']
+      - name: entity_id
+        data_tests: [not_null]
+
+  - name: fct_arr_monthly
+    description: >
+      Committed ARR by billing master and month-end, with the master's corporate parent
+      for a separate rollup. Stock is active recurring items; reductions enter on their
+      effective date, and a cancelled order drops out on its cancel date. A renewal that
+      starts the day after the prior term ends stays in stock at month-end, so it is not
+      churn plus new. Overage run-rate is trailing three calendar months times four and
+      is never added to committed ARR.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - master_account_id
+              - month_end
+    columns:
+      - name: master_account_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__account')
+                field: account_id
+      - name: ultimate_parent_account_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__account')
+                field: account_id
+      - name: month_end
+        data_tests: [not_null]
+      - name: committed_arr_usd
+        data_tests: [not_null]
+      - name: usage_overage_run_rate_usd
+        data_tests: [not_null]
+
+  - name: fct_pipeline_snapshot
+    description: >
+      Open opportunities at each month-end, from the latest opportunity history row on or
+      before that date. Amount is converted at that row's close date; a close date past the
+      published rate calendar uses the latest rate.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - opportunity_id
+              - month_end
+    columns:
+      - name: opportunity_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salesforce__opportunity')
+                field: opportunity_id
+      - name: month_end
+        data_tests: [not_null]
+      - name: amount_usd
+        data_tests: [not_null]
+      - name: stage_name
+        data_tests: [not_null]

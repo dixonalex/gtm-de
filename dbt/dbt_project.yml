@@ -25,3 +25,6 @@ models:
     dq:
       +materialized: view
       +schema: dq
+    marts:
+      +materialized: table
+      +schema: marts
