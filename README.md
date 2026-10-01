@@ -1,84 +1,119 @@
-# Quote to cash
+# GTM Data: quote-to-cash on synthetic Salesforce + Stripe
 
-[Live dashboard](https://dixonalex.github.io/gtm-de/)
+![CI](https://github.com/dixonalex/gtm-de/actions/workflows/ci.yml/badge.svg) · [Live dashboard](https://dixonalex.github.io/gtm-de/) · data pinned to 30 Sep 2026
 
-The data is a pinned synthetic snapshot as of 30 Sep 2026.
-
-[![CI](https://github.com/dixonalex/gtm-de/actions/workflows/ci.yml/badge.svg)](https://github.com/dixonalex/gtm-de/actions/workflows/ci.yml)
-
-This is a synthetic quote-to-cash warehouse and the dashboard on top of it. A generator writes a Salesforce extract and a Stripe extract, dbt-duckdb builds the models, and [Evidence](https://evidence.dev) renders five GTM pages: Executive, Sales, Deal Desk, Finance, and Data health. A few data-quality failures are planted on purpose so the health page and the finance tie-out have something real to show.
-
-## Quickstart
-
-Prerequisites: [uv](https://docs.astral.sh/uv/) and the DuckDB CLI.
-
-```bash
-make all
-```
-
-That generates the synthetic data, builds the dbt project, and checks source freshness. Live `make all` generates without `--as-of` and checks freshness; `make AS_OF=YYYY-MM-DD` pins the extract and skips freshness because the pin is intentionally stale.
-
-Explore the warehouse with `make ui` (DuckDB UI), `make lab` (Jupyter in `notebooks/`), or `make docs` (dbt docs). `notebooks/00_connect.ipynb` opens the database read-only.
-
-Explore via `gtm_explore.duckdb`; it's refreshed on every build and never locks dbt.
-
-DuckDB allows one writer on `dbt/gtm.duckdb`. Close the UI or any other read-write session before `make build` or `make all`.
-
-`make story-check` asserts the story contract. `make page-check` builds the dashboard and checks the five pages in a browser.
-
-## Pages
-
-Default slice, August 2026 closed, from the built site.
+Quote-to-cash reporting for a SaaS GTM team. Every number is shown against something: plan, last month, or a tolerance.
 
 ![Executive revenue review](docs/img/executive.png)
 
-![Sales pipeline and forecast](docs/img/sales.png)
+## How it's designed
 
-![Deal Desk exceptions](docs/img/deal-desk.png)
+Pages are organized by reader and decision, not by dataset.
 
-![Finance bookings to billings](docs/img/finance.png)
 
-![Data health](docs/img/data-health.png)
+| Page        | Reader                       | Cadence    | Decision                                            |
+| ----------- | ---------------------------- | ---------- | --------------------------------------------------- |
+| Executive   | CRO · CFO · Board            | Monthly    | Are we on plan? Why did ARR move?                   |
+| Sales       | Sales leadership · RevOps    | Weekly     | Will we hit the quarter? Where is pipeline at risk? |
+| Deal Desk   | Deal Desk · Order management | Daily      | What do I fix today?                                |
+| Finance     | Finance · Revenue accounting | Month-end  | Do bookings, orders and billings tie out?           |
+| Data health | Data team · Stewards         | Continuous | Can anyone trust these numbers today?               |
 
-## Architecture
 
-```
-generator → staging → intermediate → facts → grouping-set rollups (rpt_*) → Evidence
-```
+Rules you can check on the live site:
 
-The generator writes the extracts. Staging models are one table per source object. Intermediate models resolve accounts, FX, invoices to orders, and the quote-to-cash path. Facts (`fct_*`) are the grain of the business: ARR, bookings, billings, pipeline, aging, exceptions. The screens read grouping-set rollups (`rpt_*`): each slice of segment, region, team, or currency is already a row. Evidence pages filter those rows. Nothing is aggregated in the browser, because rates do not sum. NRR for two segments is not the sum of their NRR.
+- Every number is shown against plan, prior period or a tolerance.
+- Color is a verdict, never a sign: ARR that grew but missed plan is red.
+- Status color appears only outside a materiality band: 1% for balances like ARR, 5% for period totals like bookings, ±1 pt for rates, ±5% for attainment.
+- Titles describe the chart. Explanation lives in commentary, signed and dated by the metric's owner.
+- Never pies, dual axes, legends where a direct label fits, or rotated text.
 
-## Data quality
 
-dbt tests cover keys, relationships, and accepted values. Source freshness has an SLA per connector: Salesforce 2 hours, Stripe 24 hours. The pinned 30 Sep 2026 extract plants one Warn and one Error, and the build records both.
+<table>
+<tr>
+<td width="33%" valign="top"><a href="docs/design/README.md#1--principles"><img src="docs/design/1-principles/do-and-dont.png" alt="Principles"></a><br><b>Principles</b><br>The same data, before and after the rules</td>
+<td width="33%" valign="top"><a href="docs/design/README.md#2--foundations"><img src="docs/design/2-foundations/color.png" alt="Foundations"></a><br><b>Foundations</b><br>Status colors carry verdicts, never categories</td>
+<td width="33%" valign="top"><a href="docs/design/README.md#3--chart-grammar"><img src="docs/design/3-chart-grammar/always-never.png" alt="Chart grammar"></a><br><b>Chart grammar</b><br>Rules every chart follows</td>
+</tr>
+<tr>
+<td valign="top"><a href="docs/design/README.md#4--components"><img src="docs/design/4-components/c02-kpi-tile.png" alt="Components"></a><br><b>Components</b><br>Ten, each with its states</td>
+<td valign="top"><a href="docs/design/README.md#5--page-templates"><img src="docs/design/5-page-templates/shared-rules.png" alt="Page templates"></a><br><b>Page templates</b><br>Six rules every page follows</td>
+<td valign="top"><a href="docs/design/README.md#6--applied-screens"><img src="docs/design/6-applied-screens/t1-executive.png" alt="Applied screens"></a><br><b>Applied screens</b><br>Designed vs built</td>
+</tr>
+</table>
 
-- **Warn.** Stripe freshness. The last successful sync is 29 Sep 10:05 UTC, past the 24-hour SLA. Finance inherits it: billings are Warn because the upstream source is stale.
-- **Error.** JPY amount tie-out on `rpt_bookings_to_billings`, 3 rows. Three invoices arrived with yen treated as if it had two decimal places.
 
-Data health shows source and model status, the two open incidents, the known-issue backlog, and 30 days of test failures by family. Finance shows the same tie-out on the currency reconciliation: JPY is the error, and USD and EUR warn because unmatched invoices are above the 1% tolerance.
+Full system: [docs/design](docs/design/README.md) · [PDF](docs/design/design-system.pdf)
 
-## Story contract
+## How it's built
 
-`docs/design/story-contract.md` is the spec the screens were drawn against.
+- Python generates synthetic Salesforce and Stripe data.
+- dbt and DuckDB model it into facts and one rollup table per page. Rates are calculated in SQL so the dashboard only filters.
+- The dashboard is Evidence, deployed to GitHub Pages as a static site.
+- 333 dbt tests and freshness checks. Two failures are planted on purpose (stale Stripe sync, JPY tie-out) and show up on the Finance and Data health pages.
+- CI checks the numbers on every page against a spec and loads each page in a headless browser.
 
-- **Tier 1, exact.** Named records, policy, freshness, test outcomes, and every variance versus plan or quota. Plan and quota are derived from the generated actuals, so the variances hold by construction.
-- **Tier 2, ±10%.** The ARR book only: monthly committed ARR, the bridge components, and Enterprise share.
-- **Tier 3, invariants.** Relationships that must hold, such as the bridge tying, Won ≤ Commit ≤ Best case, and trailing-12 rates moving at most 1.5 points in a month on each segment and each region.
 
-`make story-check` asserts those tiers and writes `docs/design/screen_numbers.json`. `make page-check` serves `dashboard/build/` statically and checks three things on all five pages: the default load shows the contract numbers, a URL-seeded first load never flashes `$0` or writes an unset-input sentinel into the address bar (polled every 100ms), and changing a dropdown re-queries that slice.
+## If this were going to production
 
-## Design rules
+This is a demo on synthetic data. Here's what I would do to take it to production.
 
-Titles say what the chart measures. Status color uses a materiality band, not a sign: balances within 1%, flows within 5%, rates within ±1 point, attainment within ±5 points. A chart keeps at most three labeled lines plus the baseline. Signed bridges draw the connector at the running total, so a down bar hangs from where the total stood.
+**Start with the people**
+- [ ] Interview stakeholders and rank the deliverables with RICE before building anything.
+- [ ] Find out what GTM data products already exist and what needs to be built new.
+- [ ] Follow the org's standards for publishing new data products.
 
-## Known limitations
+**Correctness**
+- [ ] Replace the planted test cases (like the JPY tie-out) with generic checks that work for any currency.
+- [ ] Test every combination of segment and region, not just one at a time.
 
-- Invariants are checked per single dimension (segment or region), not on combined slices. SMB · EMEA shows NRR 89% and GRR 82%. Next step: generate from a segment × region matrix and assert the bounds on every slice.
-- Retention rates were calibrated against the story-check bounds, and several slices sit just under the 1.5 point monthly cap. Real data would not hug the bounds. A better generator samples from distributions and asserts the bounds instead of targeting them.
-- Forecast ordering: Commit is floored at Won in `rpt_sales_attainment` (`greatest(commit, won)` on the attainment ratio). That is correct for display. The generator should produce consistent forecast categories so no floor is needed.
-- Evidence tradeoff: the default slice is prerendered, and other slices query DuckDB-WASM in the browser over parquet. `make page-check` covers both.
-- Not built: the drill drawer, break-down toggles (they are visible and do nothing), and top-mover interactions.
+**Sources and pipelines**
+- [ ] Real connectors with a data contract and an owner for each source table.
+- [ ] Land raw files by source and load date so a backfill doesn't mean reloading everything.
+- [ ] Incremental models, plus a plan for late changes like restated invoices and reopened opportunities.
+- [ ] Figure out which entities need history snapshots. Opportunities for sure.
+
+**Serving**
+- [ ] A semantic layer so each metric is defined once and every tool uses the same one.
+- [ ] A cloud warehouse with role-based access to rep and comp data.
+- [ ] An MCP layer so people can ask Claude ad-hoc questions. Certified financial metrics, standard reports and operational dashboards stay in BI.
+
+**Operations**
+- [ ] Send freshness and test failures to the owning team's Slack channel and on-call.
+- [ ] Create incidents from alerts instead of a seed file.
+- [ ] Run builds on a schedule with an SLA on the pipeline itself.
+
+**Product**
+- [ ] Track which pages and charts people actually use and cut the rest.
+- [ ] Master data management and writeback, so business owners can approve things like duplicate account matches themselves.
+
+## Quickstart
+
+You'll need [uv](https://docs.astral.sh/uv/), the DuckDB CLI, Node 22 and Chrome.
+
+To build the same data as the live site:
+
+    make AS_OF=2026-09-30 all
+
+That generates the synthetic data and builds the dbt project. Leave off `AS_OF` to generate as of today, which also runs the source freshness checks.
+
+To run the dashboard locally:
+
+    make dash
+
+It opens at http://localhost:3000.
+
+To poke around the warehouse, use `make ui` for the DuckDB UI, `make lab` for Jupyter, or `make docs` for dbt docs. They all read `gtm_explore.duckdb`, a copy that's refreshed on every build so it never locks dbt.
+
+To run the checks CI runs:
+
+    make story-check
+    make page-check
+
+`story-check` compares the numbers against the [story contract](docs/design/story-contract.md). `page-check` builds the dashboard and loads all five pages in a browser.
 
 ---
+
+Built by Alex Dixon · [LinkedIn](https://www.linkedin.com/in/dixonalex) · [GitHub](https://github.com/dixonalex)
 
 [MIT License](LICENSE)
