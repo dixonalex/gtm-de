@@ -192,8 +192,6 @@ group by month_end
 
 ## <Value data={bridge_title} column=month_end fmt=shortdate /> closed at <Value data={bridge_title} column=closing_arr fmt=usd1m />, net <Value data={bridge_title} column=net_change_usd fmt=usd1m />
 
-Evidence 40 has no waterfall chart. This one is an ECharts stacked bar: a transparent base floats each change, and opening and closing are totals from zero.
-
 <ECharts
     height=360px
     config={{
