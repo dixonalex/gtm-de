@@ -2,7 +2,9 @@ with orders as (
     select
         order_id,
         account_id,
-        status as order_status
+        status as order_status,
+        effective_date,
+        cancelled_date
     from {{ ref('stg_salesforce__order') }}
 ),
 
@@ -30,21 +32,34 @@ expected as (
         s.order_id,
         sum(s.expected_amount / fx.conversion_rate) as expected_billed_to_date_usd
     from {{ ref('int_orders__billing_schedule') }} s
+    inner join orders o on s.order_id = o.order_id
     inner join fx
         on fx.rate_date = s.slot_start
        and fx.currency_code = s.currency_iso_code
-    where s.slot_start <= {{ as_of_date() }}
+    where o.order_status != 'Draft'
+      and o.effective_date <= {{ as_of_date() }}
+      and s.slot_start <= {{ as_of_date() }}
+      and (
+          o.order_status != 'Cancelled'
+          or s.slot_start <= o.cancelled_date
+      )
     group by s.order_id
 ),
 
+-- fct_billings drops void invoices, so a void contributes nothing here.
 billed as (
     select
-        order_id,
-        sum(billed_usd) filter (where not is_overage) as billed_to_date_usd,
-        sum(billed_usd) filter (where is_overage) as overage_billed_usd
-    from {{ ref('fct_billings') }}
-    where order_id is not null
-    group by order_id
+        b.order_id,
+        sum(b.billed_usd) filter (
+            where not b.is_overage and i.status is distinct from 'void'
+        ) as billed_to_date_usd,
+        sum(b.billed_usd) filter (
+            where b.is_overage and i.status is distinct from 'void'
+        ) as overage_billed_usd
+    from {{ ref('fct_billings') }} b
+    left join {{ ref('stg_billing__invoice') }} i on b.invoice_id = i.invoice_id
+    where b.order_id is not null
+    group by b.order_id
 ),
 
 compared as (
@@ -57,7 +72,10 @@ compared as (
         coalesce(e.expected_billed_to_date_usd, 0) as expected_billed_to_date_usd,
         coalesce(b.billed_to_date_usd, 0) as billed_to_date_usd,
         coalesce(b.overage_billed_usd, 0) as overage_billed_usd,
-        coalesce(b.billed_to_date_usd, 0) - coalesce(e.expected_billed_to_date_usd, 0) as variance_usd
+        case
+            when o.order_status = 'Activated'
+                then coalesce(b.billed_to_date_usd, 0) - coalesce(e.expected_billed_to_date_usd, 0)
+        end as variance_usd
     from orders o
     inner join accounts a on o.account_id = a.account_id
     left join contract c on o.order_id = c.order_id

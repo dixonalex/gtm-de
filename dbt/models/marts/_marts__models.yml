@@ -55,8 +55,11 @@ models:
 
   - name: rpt_bookings_to_billings
     description: >
-      Order contract value against the billing schedule expected through today, and invoices
-      matched to the order. Overage is reported beside the variance, not inside it.
+      Order contract value against what should have been billed by the warehouse as-of date.
+      Draft orders, and any order whose EffectiveDate is still in the future, have no expected
+      billing. Cancelled orders accrue only through Cancelled_Date__c. Void invoices contribute
+      nothing. Variance and on-schedule status apply only to Activated orders; draft and
+      cancelled rows carry a status and a null variance.
     columns:
       - name: order_id
         data_tests:
@@ -75,7 +78,7 @@ models:
       - name: contract_value_usd
         data_tests: [not_null]
       - name: variance_usd
-        data_tests: [not_null]
+        description: Null for draft and cancelled orders. Set only when the order is Activated.
 
   - name: rpt_quote_to_cash_exceptions
     description: >
