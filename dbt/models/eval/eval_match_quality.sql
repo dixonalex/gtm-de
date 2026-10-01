@@ -9,7 +9,8 @@ with truth_accounts as (
 truth_invoices as (
     select
         invoice_id,
-        nullif(true_order_id, '') as true_order_id
+        nullif(true_order_id, '') as true_order_id,
+        nullif(true_opportunity_id, '') as true_opportunity_id
     from read_csv('{{ data_dir() }}/truth/invoice_order.csv', header = true, nullstr = '')
 ),
 
@@ -38,7 +39,7 @@ predicted_accounts as (
 ),
 
 predicted_invoices as (
-    select invoice_id, order_id, match_method
+    select invoice_id, order_id, opportunity_id, match_method
     from {{ ref('int_invoices__to_order') }}
 ),
 
@@ -183,12 +184,19 @@ invoice_scored as (
     select
         p.invoice_id,
         p.order_id,
+        p.opportunity_id,
         p.match_method,
         t.true_order_id,
+        t.true_opportunity_id,
         i.billing_reason,
         abs(i.total) / fx.conversion_rate as abs_usd,
-        p.match_method != 'unmatched' and p.order_id = t.true_order_id as is_correct_link,
-        t.true_order_id is not null as has_truth_order
+        p.match_method not in ('unmatched', 'opportunity_no_order') as is_order_match,
+        p.match_method not in ('unmatched', 'opportunity_no_order')
+            and p.order_id = t.true_order_id as is_correct_link,
+        t.true_order_id is not null as has_truth_order,
+        p.match_method = 'opportunity_no_order'
+            and p.opportunity_id = t.true_opportunity_id as is_correct_opportunity,
+        t.true_opportunity_id is not null as has_truth_opportunity
     from predicted_invoices p
     left join truth_invoices t on p.invoice_id = t.invoice_id
     left join invoices i on p.invoice_id = i.invoice_id
@@ -354,7 +362,7 @@ metrics as (
         null,
         count(*) filter (where is_correct_link) * 1.0 / nullif(count(*), 0)
     from invoice_scored
-    where match_method != 'unmatched'
+    where is_order_match
     group by match_method
 
     union all
@@ -373,6 +381,7 @@ metrics as (
         from invoice_scored
         group by billing_reason
     ) t on s.billing_reason = t.billing_reason
+    where s.is_order_match
     group by s.match_method, s.billing_reason
 
     union all
@@ -401,6 +410,7 @@ metrics as (
         count(*) filter (where is_correct_link) * 1.0
             / (select nullif(count(*) filter (where has_truth_order), 0) from invoice_scored)
     from invoice_scored
+    where is_order_match
     group by match_method
 
     union all
@@ -443,7 +453,7 @@ metrics as (
         null,
         null,
         null,
-        count(*) filter (where is_correct_link) * 1.0 / nullif(count(*) filter (where match_method != 'unmatched'), 0)
+        count(*) filter (where is_correct_link) * 1.0 / nullif(count(*) filter (where is_order_match), 0)
     from invoice_scored
 
     union all
@@ -456,6 +466,45 @@ metrics as (
         null,
         null,
         count(*) filter (where is_correct_link) * 1.0 / nullif(count(*) filter (where has_truth_order), 0)
+    from invoice_scored
+
+    union all
+
+    select
+        'invoice_order',
+        'v3',
+        'count',
+        match_method,
+        null,
+        null,
+        count(*)
+    from invoice_scored
+    group by match_method
+
+    union all
+
+    select
+        'invoice_opportunity',
+        'v3',
+        'precision',
+        'opportunity_no_order',
+        null,
+        null,
+        count(*) filter (where is_correct_opportunity) * 1.0
+            / nullif(count(*) filter (where match_method = 'opportunity_no_order'), 0)
+    from invoice_scored
+
+    union all
+
+    select
+        'invoice_opportunity',
+        'v3',
+        'recall',
+        'opportunity_no_order',
+        null,
+        null,
+        count(*) filter (where is_correct_opportunity) * 1.0
+            / nullif(count(*) filter (where has_truth_opportunity), 0)
     from invoice_scored
 )
 

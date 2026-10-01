@@ -718,10 +718,13 @@ class Gen:
                 d = opp["CloseDate"] + dt.timedelta(days=self.i(3, 20))
                 if d > self.last_event_day:
                     continue
-                self.new_invoice(self.customer_for(acct), cur, self.ts(d, 6, 9), d, add_months(d, 12) - DAY,
-                                 "manual", None, [(self.products[l["code"]]["name"], l["qty"], l["unit"],
-                                                   l["qty"] * l["unit"], l["code"], None, False)
-                                                  for l in opp["_lines"]])
+                inv = self.new_invoice(
+                    self.customer_for(acct), cur, self.ts(d, 6, 9), d, add_months(d, 12) - DAY,
+                    "manual", None, [(self.products[l["code"]]["name"], l["qty"], l["unit"],
+                                      l["qty"] * l["unit"], l["code"], None, False)
+                                     for l in opp["_lines"]])
+                if inv is not None:
+                    inv["_true_opportunity_id"] = opp["Id"]
 
         self.build_payments()
 
@@ -1050,8 +1053,9 @@ class Gen:
             columns=["account_id", "true_master_account_id", "case_type"],
         )
         invoices = pd.DataFrame(
-            [{"invoice_id": r["id"], "true_order_id": r.get("_true_order_id")} for r in self.rows("invoice")],
-            columns=["invoice_id", "true_order_id"],
+            [{"invoice_id": r["id"], "true_order_id": r.get("_true_order_id"),
+              "true_opportunity_id": r.get("_true_opportunity_id")} for r in self.rows("invoice")],
+            columns=["invoice_id", "true_order_id", "true_opportunity_id"],
         )
         accounts.to_csv(truth / "account_duplicates.csv", index=False)
         invoices.to_csv(truth / "invoice_order.csv", index=False)

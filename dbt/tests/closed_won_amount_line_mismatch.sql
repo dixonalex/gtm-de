@@ -1,17 +1,11 @@
 {{ config(severity='warn', store_failures=true) }}
 
--- Closed Won amount differs from the sum of opportunity lines.
+-- Closed Won amount mismatches last modified within 7 days of the warehouse as-of date.
 select
-    o.opportunity_id,
-    o.amount as opportunity_amount,
-    coalesce(l.line_amount, 0) as line_amount
-from {{ ref('stg_salesforce__opportunity') }} o
-left join (
-    select
-        opportunity_id,
-        sum(total_price) as line_amount
-    from {{ ref('stg_salesforce__opportunity_line_item') }}
-    group by opportunity_id
-) l on o.opportunity_id = l.opportunity_id
-where o.is_won
-  and abs(o.amount - coalesce(l.line_amount, 0)) > 0.01
+    record_id,
+    first_seen,
+    age_days,
+    usd_at_stake
+from {{ ref('dq_backlog') }}
+where exception_type = 'closed_won_amount_line_mismatch'
+  and age_days between 0 and 7

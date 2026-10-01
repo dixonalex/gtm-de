@@ -1,10 +1,11 @@
 {{ config(severity='warn', store_failures=true) }}
 
--- Warns while any Closed Won opportunity has no order.
+-- Closed Won without an order whose CloseDate is within 7 days of the warehouse as-of date.
 select
-    entity_id,
-    account_id,
-    master_account_id,
-    invoiced_anyway
-from {{ ref('rpt_quote_to_cash_exceptions') }}
+    record_id,
+    first_seen,
+    age_days,
+    usd_at_stake
+from {{ ref('dq_backlog') }}
 where exception_type = 'closed_won_without_order'
+  and age_days between 0 and 7

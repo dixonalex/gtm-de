@@ -149,8 +149,11 @@ models:
 
   - name: int_invoices__to_order
     description: >
-      Every invoice linked to an order. Metadata wins. Otherwise a 1:1 match to a billing-schedule
-      slot, an API-COMMIT overage term, or a reduction-order credit.
+      Every invoice linked to an order, or to a Closed Won opportunity that has no order.
+      Metadata wins. Otherwise a 1:1 match to a billing-schedule slot, an API-COMMIT overage
+      term, or a reduction-order credit. Invoices that still have no order can match a
+      same-currency Closed Won opportunity on the customer master when the invoice is within
+      30 days of CloseDate and within 1% of Amount.
     columns:
       - name: invoice_id
         data_tests:
@@ -167,10 +170,10 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ['metadata', 'fuzzy_schedule', 'fuzzy_overage', 'fuzzy_credit', 'unmatched']
+                values: ['metadata', 'fuzzy_schedule', 'fuzzy_overage', 'fuzzy_credit', 'opportunity_no_order', 'unmatched']
 
   - name: int_invoices__unmatched
-    description: Invoices with no metadata order and no schedule, overage, or credit match.
+    description: Invoices with no order match and no Closed Won opportunity fallback.
     columns:
       - name: invoice_id
         data_tests:

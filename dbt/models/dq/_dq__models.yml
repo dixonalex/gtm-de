@@ -15,3 +15,32 @@ models:
         data_tests: [not_null]
       - name: queue_rank
         data_tests: [unique, not_null]
+
+  - name: dq_backlog
+    description: >
+      Open data-quality exceptions, including ones older than the 7-day incident window.
+      first_seen is _loaded_at for a late Salesforce row, CloseDate for Closed Won without
+      an order, and LastModifiedDate for an amount mismatch. age_days is measured from the
+      warehouse as-of date. usd_at_stake is null for arrival lag.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - exception_type
+              - record_id
+    columns:
+      - name: exception_type
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - salesforce_arrival_lag
+                  - closed_won_without_order
+                  - closed_won_amount_line_mismatch
+      - name: record_id
+        data_tests: [not_null]
+      - name: first_seen
+        data_tests: [not_null]
+      - name: age_days
+        data_tests: [not_null]

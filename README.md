@@ -6,7 +6,7 @@ Prerequisites: [uv](https://docs.astral.sh/uv/) and the DuckDB CLI.
 make all
 ```
 
-That generates the synthetic data, builds the dbt project, and checks source freshness.
+That generates the synthetic data, builds the dbt project, and checks source freshness. Local `make` passes `--as-of 2026-09-28` so account ids stay aligned with the simulated steward seed. CI generates without `--as-of`.
 
 Explore the warehouse with `make ui` (DuckDB UI), `make lab` (Jupyter in `notebooks/`), or `make docs` (dbt docs). `notebooks/00_connect.ipynb` opens the database read-only.
 

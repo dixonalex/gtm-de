@@ -9,7 +9,8 @@ with truth_accounts as (
 truth_invoices as (
     select
         invoice_id,
-        nullif(true_order_id, '') as true_order_id
+        nullif(true_order_id, '') as true_order_id,
+        nullif(true_opportunity_id, '') as true_opportunity_id
     from read_csv('{{ data_dir() }}/truth/invoice_order.csv', header = true, nullstr = '')
 ),
 
@@ -25,7 +26,7 @@ predicted_accounts as (
 ),
 
 predicted_invoices as (
-    select invoice_id, order_id, match_method
+    select invoice_id, order_id, opportunity_id, match_method
     from {{ ref('int_invoices__to_order') }}
 ),
 
@@ -54,7 +55,9 @@ invoice_joined as (
     select
         p.invoice_id,
         p.order_id as predicted_id,
+        p.opportunity_id,
         t.true_order_id as truth_id,
+        t.true_opportunity_id,
         p.match_method,
         i.billing_reason,
         ta.case_type
@@ -108,7 +111,7 @@ select
     billing_reason,
     match_method
 from invoice_joined
-where match_method != 'unmatched'
+where match_method not in ('unmatched', 'opportunity_no_order')
   and (truth_id is null or predicted_id is distinct from truth_id)
 
 union all
@@ -125,4 +128,45 @@ select
     match_method
 from invoice_joined
 where truth_id is not null
-  and (match_method = 'unmatched' or predicted_id is distinct from truth_id)
+  and (
+      match_method in ('unmatched', 'opportunity_no_order')
+      or predicted_id is distinct from truth_id
+  )
+
+union all
+
+select
+    'invoice_opportunity',
+    'v3',
+    'false_positive',
+    invoice_id,
+    opportunity_id,
+    true_opportunity_id,
+    case_type,
+    billing_reason,
+    match_method
+from invoice_joined
+where match_method = 'opportunity_no_order'
+  and (
+      true_opportunity_id is null
+      or opportunity_id is distinct from true_opportunity_id
+  )
+
+union all
+
+select
+    'invoice_opportunity',
+    'v3',
+    'false_negative',
+    invoice_id,
+    opportunity_id,
+    true_opportunity_id,
+    case_type,
+    billing_reason,
+    match_method
+from invoice_joined
+where true_opportunity_id is not null
+  and (
+      match_method != 'opportunity_no_order'
+      or opportunity_id is distinct from true_opportunity_id
+  )

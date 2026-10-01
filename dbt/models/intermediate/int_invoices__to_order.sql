@@ -280,16 +280,66 @@ fuzzy_match as (
     from walk
     where invoice_id is not null
       and priority = 1
+),
+
+won_without_order as (
+    select
+        o.opportunity_id,
+        o.close_date,
+        o.amount,
+        o.currency_iso_code,
+        a.master_account_id
+    from {{ ref('stg_salesforce__opportunity') }} o
+    inner join accounts a on o.account_id = a.account_id
+    where o.is_won
+      and not exists (
+          select 1
+          from orders ord
+          where ord.opportunity_id = o.opportunity_id
+      )
+),
+
+opportunity_ranked as (
+    select
+        i.invoice_id,
+        w.opportunity_id,
+        row_number() over (
+            partition by i.invoice_id
+            order by
+                abs(date_diff('day', w.close_date, cast(i.created as date))),
+                abs(i.total - w.amount),
+                w.opportunity_id
+        ) as rn
+    from invoices i
+    inner join invoice_account ia on i.invoice_id = ia.invoice_id
+    inner join won_without_order w
+        on w.master_account_id = ia.master_account_id
+       and w.currency_iso_code = i.currency
+    left join metadata_match m on i.invoice_id = m.invoice_id
+    left join fuzzy_match f on i.invoice_id = f.invoice_id
+    where m.invoice_id is null
+      and f.invoice_id is null
+      and abs(date_diff('day', w.close_date, cast(i.created as date))) <= 30
+      and abs(i.total - w.amount) <= 0.01 * abs(w.amount)
+),
+
+opportunity_match as (
+    select invoice_id, opportunity_id
+    from opportunity_ranked
+    where rn = 1
 )
 
 select
     i.invoice_id,
     coalesce(m.order_id, f.order_id) as order_id,
+    opp.opportunity_id,
     case
         when m.invoice_id is not null then 'metadata'
         when f.invoice_id is not null then f.match_method
+        when opp.invoice_id is not null then 'opportunity_no_order'
         else 'unmatched'
     end as match_method
 from invoices i
 left join metadata_match m on i.invoice_id = m.invoice_id
 left join fuzzy_match f on i.invoice_id = f.invoice_id
+left join opportunity_match opp on i.invoice_id = opp.invoice_id

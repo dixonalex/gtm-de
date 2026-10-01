@@ -79,8 +79,9 @@ models:
 
   - name: rpt_quote_to_cash_exceptions
     description: >
-      Closed Won with no order, unmatched invoices, and Closed Won amounts that differ from
-      the opportunity lines. invoiced_anyway is set when an unmatched invoice's customer
+      Closed Won with no order, unmatched invoices, invoices matched to a Closed Won
+      opportunity that has no order, and Closed Won amounts that differ from the
+      opportunity lines. invoiced_anyway is set when an off-order invoice's customer
       rolls up to the same billing master.
     columns:
       - name: exception_type
@@ -88,7 +89,7 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ['closed_won_without_order', 'unmatched_invoice', 'amount_line_override']
+                values: ['closed_won_without_order', 'unmatched_invoice', 'amount_line_override', 'billed_without_order']
       - name: entity_id
         data_tests: [not_null]
 

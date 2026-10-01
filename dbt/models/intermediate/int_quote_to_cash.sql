@@ -23,7 +23,7 @@ invoice_rollup as (
         count(*) filter (where match_method = 'metadata') as metadata_invoice_count,
         count(*) filter (where match_method like 'fuzzy%') as fuzzy_invoice_count
     from {{ ref('int_invoices__to_order') }}
-    where match_method != 'unmatched'
+    where match_method not in ('unmatched', 'opportunity_no_order')
     group by order_id
 )
 

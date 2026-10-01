@@ -1,14 +1,14 @@
 ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 export GTM_DATA_DIR := $(ROOT)/data
 
+# Local extracts stay on the date the steward seed was simulated from.
+# CI calls the generator directly, without --as-of.
+AS_OF ?= 2026-09-28
+
 .PHONY: data build fresh all docs ui lab
 
 data:
-ifdef AS_OF
 	uv run python generator/generate.py --as-of $(AS_OF)
-else
-	uv run python generator/generate.py
-endif
 
 build:
 	cd dbt && uv run --project $(ROOT) dbt deps --profiles-dir .
