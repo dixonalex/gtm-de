@@ -11,6 +11,23 @@ function num(value) {
 	return Number.isFinite(n) ? n : null;
 }
 
+const LOCAL = { USD: "$", EUR: "€", GBP: "£", JPY: "¥", CAD: "C$", AUD: "A$" };
+
+export function localMoney(currency, value) {
+	const n = num(value);
+	if (n == null || !currency || currency === "Total") return "";
+	const symbol = LOCAL[currency] || "";
+	const body = Math.round(Math.abs(n)).toLocaleString("en-US");
+	return `${n < 0 ? MINUS : ""}${symbol}${body}`;
+}
+
+export function asRows(value) {
+	if (!value) return [];
+	if (Array.isArray(value)) return value;
+	if (typeof value.length === "number") return Array.from(value);
+	return [];
+}
+
 export function money(value, { signed = false } = {}) {
 	const n = num(value);
 	if (n == null) return "";

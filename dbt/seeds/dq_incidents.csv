@@ -1,3 +1,3 @@
-incident_key,title,opened_at,owner,sla_hours
-stripe_freshness,Stripe connector freshness,2026-09-30 10:05:00,A. Dixon,4
-jpy_tie_out,JPY invoice tie-out,2026-09-30 15:05:00,A. Dixon,4
+incident_key,title,opened_at,owner,sla_hours,impact,action
+stripe_freshness,Stripe connector freshness,2026-09-30 10:05:00,A. Dixon,4,Billing freshness is outside the 24h SLA,Check the Stripe sync
+jpy_tie_out,JPY invoice tie-out,2026-09-30 15:05:00,A. Dixon,4,3 rows failed the JPY amount tie-out,Fix the conversion scale

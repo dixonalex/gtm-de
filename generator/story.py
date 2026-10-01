@@ -138,7 +138,8 @@ def _add_opp(g, acct, n, close, amount, stage, won, lines, keep_open=False, slip
             (close, "Closed Won", 100, "Closed", amount, close),
         ]
     for i, (d, s, prob, fc, amt, cd) in enumerate(history):
-        t = created if i == 0 else _ts(d, 10 + i)
+        when = d.date() if isinstance(d, dt.datetime) else d
+        t = _ts(when, 9 if i == 0 else 10 + i)
         g.rows("opportunity_history").append(dict(
             Id=story_sfid("008", n * 10 + i), OpportunityId=oid, StageName=s, Amount=amt,
             ExpectedRevenue=money(amt * prob / 100, cur), CloseDate=cd, Probability=prob,
@@ -160,6 +161,10 @@ def _add_opp(g, acct, n, close, amount, stage, won, lines, keep_open=False, slip
         CreatedDate=created, LastModifiedDate=close_ts, SystemModstamp=close_ts, IsDeleted=False,
         _keep_open=keep_open)
     g.rows("opportunity").append(opp)
+    frozen = getattr(g, "_frozen_opps", None)
+    if frozen is None:
+        g._frozen_opps = set()
+    g._frozen_opps.add(oid)
     return opp
 
 
@@ -489,27 +494,28 @@ def plant_story(g) -> None:
     events.append(_event_resolved("Fennel Systems", story_sfid("006", 142), "won_without_order",
                                   dt.date(2026, 8, 26), dt.date(2026, 9, 29), 400_000, "A. Chen", 3, 18))
 
-    # --- Slipped deals, close date pushed out of Q3 during the week of 28 Sep ---
+    # --- Slipped deals. The close that left Q3 is during the week of 28 Sep.
+    # Prior close sits in the last two weeks of September; the new date is spread across Q4.
     slips = [
-        (301, "Harbor County Health", "Public sector", 320_000, 2, "S. Ito"),
-        (302, "Ostrava Labs", "Enterprise", 240_000, 1, "D. Brennan"),
-        (303, "Cinder Freight", "Enterprise", 180_000, 1, "D. Brennan"),
-        (304, "Brightline Dental", "SMB", 140_000, 3, "L. Moreau"),
-        (305, "Mosaic Transit", "Public sector", 120_000, 1, "S. Ito"),
-        (306, "Orbit Supply", "Mid-market", 100_000, 2, "K. Adeyemi"),
+        (301, "Harbor County Health", "Public sector", 320_000, 2, "S. Ito", dt.date(2026, 9, 18), dt.date(2026, 11, 16), dt.date(2026, 9, 28)),
+        (302, "Ostrava Labs", "Enterprise", 240_000, 1, "D. Brennan", dt.date(2026, 9, 22), dt.date(2026, 10, 8), dt.date(2026, 9, 29)),
+        (303, "Cinder Freight", "Enterprise", 180_000, 1, "D. Brennan", dt.date(2026, 9, 29), dt.date(2026, 12, 3), dt.date(2026, 9, 30)),
+        (304, "Brightline Dental", "SMB", 140_000, 3, "L. Moreau", dt.date(2026, 9, 16), dt.date(2026, 11, 24), dt.date(2026, 9, 28)),
+        (305, "Mosaic Transit", "Public sector", 120_000, 1, "S. Ito", dt.date(2026, 9, 24), dt.date(2026, 10, 27), dt.date(2026, 9, 29)),
+        (306, "Orbit Supply", "Mid-market", 100_000, 2, "K. Adeyemi", dt.date(2026, 9, 17), dt.date(2026, 12, 15), dt.date(2026, 9, 30)),
     ]
-    for n, name, segment, amount, slips_n, owner in slips:
+    for n, name, segment, amount, slips_n, owner, old_close, new_close, changed_on in slips:
         a = acct(n, name, segment, owner=owner)
         ln = _usd_line(g, a, n, amount, "SEAT-TEAM" if segment != "Enterprise" else "SEAT-ENT")
-        history = []
         created = dt.date(2026, 7, 6)
-        close = dt.date(2026, 9, 15)
-        history.append((created, "Prospecting", 10, "Pipeline", amount, close))
+        history = [(created, "Prospecting", 10, "Pipeline", amount, dt.date(2026, 8, 14))]
         for s in range(slips_n - 1):
-            close = close + dt.timedelta(days=7)
-            history.append((dt.date(2026, 8, 3 + s * 7), "Negotiation/Review", 80, "Commit", amount, min(close, dt.date(2026, 9, 28))))
-        history.append((dt.date(2026, 9, 28), "Negotiation/Review", 80, "Commit", amount, dt.date(2026, 10, 16)))
-        _add_opp(g, a, n, dt.date(2026, 10, 16), amount, ("Negotiation/Review", 80, "Commit"), False, [ln],
+            interim = old_close if s == slips_n - 2 else dt.date(2026, 9, 4)
+            history.append((dt.date(2026, 8, 6 + s * 6), "Negotiation/Review", 80, "Commit", amount, interim))
+        if slips_n == 1:
+            history[0] = (created, "Prospecting", 10, "Pipeline", amount, old_close)
+        history.append((changed_on, "Negotiation/Review", 80, "Commit", amount, new_close))
+        _add_opp(g, a, n, new_close, amount, ("Negotiation/Review", 80, "Commit"), False, [ln],
                  slip_history=history)
 
     # --- Account-match pairs ---
@@ -615,10 +621,19 @@ def plant_billing_defects(g) -> None:
     for acct, n, amount, opened in getattr(g, "_story_late_invoice", []):
         _manual_invoice(g, acct, n, amount, opened, order_id=story_sfid("801", n))
 
-    # Closed-month unmatched invoice. Together with the JPY scale defect this puts
-    # unmatched value above the 1% billings tolerance. Not a Deal Desk row.
+    # Three closed-month unmatched invoices, one each in USD, EUR, and JPY.
+    # Paid before month-end so they bill and miss the tie-out without sitting in AR.
+    # Together with the JPY scale defect this puts unmatched value above 1%.
     sable = next(a for a in g.accounts if a["Name"] == "Sable Cohort 1")
-    _manual_invoice(g, sable, 801, 180_000, dt.date(2026, 8, 12), order_id=None)
+    brightwater = next(a for a in g.accounts if a["Name"] == "Brightwater Systems")
+    yen = next(a for a in g.accounts if a["Name"] == "Yen Defect 1")
+    _manual_invoice(g, sable, 801, 120_000, dt.date(2026, 8, 12), order_id=None)
+    eur_local = money(100_000 * g.fx("EUR", dt.date(2026, 8, 14)), "EUR")
+    _manual_invoice(g, brightwater, 802, eur_local, dt.date(2026, 8, 14), order_id=None)
+    jpy_local = money(80_000 * g.fx("JPY", dt.date(2026, 8, 18)), "JPY")
+    _manual_invoice(g, yen, 803, jpy_local, dt.date(2026, 8, 18), order_id=None)
+    # July has one unmatched invoice, also paid inside the month.
+    _manual_invoice(g, sable, 804, 40_000, dt.date(2026, 7, 16), order_id=None, paid_on=dt.date(2026, 7, 28))
     # Over-90 that is written off before August, so March has a balance and August does not.
     for i, amount in enumerate((50_000, 50_000, 50_000, 40_000)):
         opened = dt.date(2025, 11, 10)
@@ -677,3 +692,85 @@ def _manual_invoice(g, acct, n, amount, opened, order_id, uncollectible_on=None,
         amount=total, currency=cur.lower(), period_start=opened,
         period_end=add_months(opened, 1) - DAY, proration=False,
         metadata_product_code="SEAT-ENT", metadata_salesforce_order_item_id=None, _updated=created))
+
+
+def rebalance_fy26_bookings(g) -> None:
+    """Move non-story won close dates inside Jan–Jun so no month of new and expansion
+    order ACV is under half or over 175% of the Jan–Aug mean. Opportunity amount is
+    the wrong measure: the page books the order. July and August stay put, so Q3 won
+    and the August bookings ratio are unchanged. Does not touch the RNG."""
+    if g.as_of != AS_OF:
+        return
+    frozen = getattr(g, "_frozen_opps", set())
+    orders_by_opp = {}
+    for order in g.rows("order"):
+        oid = order.get("OpportunityId")
+        if oid:
+            orders_by_opp.setdefault(oid, []).append(order)
+
+    def acv(opp):
+        total = 0.0
+        close = opp["CloseDate"]
+        for order in orders_by_opp.get(opp["Id"], []):
+            if order.get("IsReductionOrder") or order.get("Type") not in ("New", "Add-On"):
+                continue
+            rate = g.fx(order.get("CurrencyIsoCode") or "USD", close) or 1
+            for item in order.get("_items") or []:
+                if item.get("EndDate") is not None:
+                    total += float(item["Quantity"]) * float(item["UnitPrice"]) / rate
+        return total
+
+    start, end = dt.date(2026, 1, 1), dt.date(2026, 8, 31)
+    won = [
+        opp for opp in g.rows("opportunity")
+        if opp.get("IsWon") and isinstance(opp.get("CloseDate"), dt.date) and start <= opp["CloseDate"] <= end
+    ]
+    movable = [opp for opp in won if opp["Id"] not in frozen]
+
+    def totals():
+        buckets = {month: 0.0 for month in range(1, 9)}
+        for opp in won:
+            close = opp["CloseDate"]
+            if isinstance(close, dt.date) and start <= close <= end:
+                buckets[close.month] += acv(opp)
+        return buckets
+
+    def move(opp, month):
+        old = opp["CloseDate"]
+        new = dt.date(2026, month, 15)
+        if old == new:
+            return
+        opp["CloseDate"] = new
+        for row in g.rows("opportunity_history"):
+            if row.get("OpportunityId") == opp["Id"] and row.get("CloseDate") == old:
+                row["CloseDate"] = new
+
+    free = list(range(1, 7))
+    for _ in range(8000):
+        buckets = totals()
+        total = sum(buckets.values())
+        if total <= 0:
+            return
+        mean = total / 8
+        if all(0.50 * mean <= buckets[month] <= 1.75 * mean for month in range(1, 9)):
+            return
+        hi = max(free, key=lambda month: buckets[month])
+        candidates = [opp for opp in movable if opp["CloseDate"].month == hi and acv(opp) > 0]
+        candidates.sort(key=lambda opp: (acv(opp), opp["Id"]))
+        placed = False
+        for lo in sorted(free, key=lambda month: buckets[month]):
+            if lo == hi:
+                continue
+            room = 1.75 * mean - buckets[lo]
+            floor = 0.50 * mean
+            chosen = next(
+                (opp for opp in candidates if acv(opp) <= room and buckets[hi] - acv(opp) >= floor),
+                None,
+            )
+            if chosen is not None:
+                move(chosen, lo)
+                placed = True
+                break
+        if not placed:
+            print("bookings rebalance stopped", {m: round(buckets[m] / mean, 3) for m in range(1, 9)})
+            return

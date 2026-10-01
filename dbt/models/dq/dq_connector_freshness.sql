@@ -18,7 +18,7 @@ aged as (
         {{ as_of_date() }} as as_of_date,
         connector_id,
         last_successful_sync,
-        date_diff('hour', last_successful_sync, (select now from clock)) as age_hours,
+        date_diff('minute', last_successful_sync, (select now from clock)) / 60.0 as age_hours,
         date_diff('minute', last_successful_sync, (select now from clock)) as age_minutes
     from syncs
 )

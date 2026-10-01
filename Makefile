@@ -19,7 +19,7 @@ build:
 	uv run python scripts/load_dq_test_results.py
 	uv run python scripts/derive_story_seeds.py --phase plans
 	cd dbt && uv run --project $(ROOT) dbt seed --full-refresh --profiles-dir . --select plan_monthly quota_quarterly forecast_call_weekly dq_test_results_latest
-	cd dbt && uv run --project $(ROOT) dbt run --profiles-dir . --select fct_arr_plan fct_forecast_call dq_model_health fct_billings_by_currency
+	cd dbt && uv run --project $(ROOT) dbt run --profiles-dir . --select fct_arr_plan+ fct_forecast_call+ dq_model_health+ fct_billings_by_currency+ fct_commit_consumption+ rpt_executive_month+ rpt_sales_attainment+ rpt_sales_bookings rpt_deal_desk_slice+ rpt_finance_month+ rpt_finance_aging rpt_known_issues+ rpt_test_history+
 	cp -f $(ROOT)/dbt/gtm.duckdb $(ROOT)/dbt/gtm_explore.duckdb
 
 story-check:

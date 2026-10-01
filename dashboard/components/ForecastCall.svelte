@@ -1,7 +1,7 @@
 <script>
 	import ChartCanvas from "./ChartCanvas.svelte";
 	import { axisMoney, money } from "./format.js";
-	import { CONTEXT, FOCUS, MUTED, RULE, axisWindow, valueAxisTicks } from "./chartTheme.js";
+	import { CONTEXT, FOCUS, INK, MUTED, RULE, axisWindow, valueAxisTicks } from "./chartTheme.js";
 
 	export let labels = [];
 	export let commit = [];
@@ -14,7 +14,7 @@
 	$: last = Math.max(commit.length - 1, 0);
 
 	$: option = {
-		grid: { left: 64, right: 16, top: 28, bottom: 28 },
+		grid: { left: 64, right: 132, top: 28, bottom: 28 },
 		xAxis: {
 			type: "category",
 			data: labels,
@@ -61,6 +61,49 @@
 				symbol: "none",
 				lineStyle: { color: MUTED, width: 1.5 },
 				itemStyle: { color: MUTED },
+			},
+			{
+				type: "custom",
+				coordinateSystem: "cartesian2d",
+				silent: true,
+				z: 10,
+				clip: false,
+				data: [[last, commit[last], bestCase[last]]],
+				renderItem(params, api) {
+					const commitAt = api.coord([api.value(0), api.value(1)]);
+					const bestAt = api.coord([api.value(0), api.value(2)]);
+					const x = commitAt[0] + 10;
+					return {
+						type: "group",
+						children: [
+							{
+								type: "text",
+								style: {
+									x,
+									y: commitAt[1],
+									text: `Commit ${money(commit[last])}`,
+									fill: INK,
+									fontSize: 12,
+									fontWeight: 600,
+									fontFamily: "IBM Plex Sans, sans-serif",
+									verticalAlign: "middle",
+								},
+							},
+							{
+								type: "text",
+								style: {
+									x,
+									y: bestAt[1],
+									text: `Best case ${money(bestCase[last])}`,
+									fill: MUTED,
+									fontSize: 12,
+									fontFamily: "IBM Plex Sans, sans-serif",
+									verticalAlign: "middle",
+								},
+							},
+						],
+					};
+				},
 			},
 		],
 	};

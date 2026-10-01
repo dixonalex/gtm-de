@@ -1,46 +1,81 @@
 ---
-title: Executive
+title: Revenue review
+hide_title: true
 ---
 
-```sql plan
-select * from gtm.arr_plan
+```sql periods
+select distinct month_key as value, strftime(month_end, '%b %Y') as label
+from gtm.executive_month
+where segment = 'All' and region = 'All'
+order by value
 ```
 
-```sql bridge
-select * from gtm.arr_bridge
+```sql regions
+select 'All' as value
+union all
+select distinct region as value
+from gtm.executive_month
+where region != 'All'
+order by value
 ```
 
-```sql movement
-select * from gtm.arr_movement
+```sql kpi
+select *
+from gtm.executive_month
+where month_key = '${inputs.period.value}'
+  and segment = '${inputs.segment.value}'
+  and region = '${inputs.region.value}'
 ```
 
-```sql nrr
-select * from gtm.nrr_grr
+```sql trend
+select *
+from gtm.executive_month
+where segment = '${inputs.segment.value}'
+  and region = '${inputs.region.value}'
+  and month_key >= '2026-01-01'
+  and month_key <= '${inputs.period.value}'
+order by month_key
 ```
 
-```sql commentary
-select * from gtm.commentary
+```sql notes
+select *
+from gtm.executive_commentary
+where month_key = '${inputs.period.value}'
+  and view_segment = '${inputs.segment.value}'
+  and view_region = '${inputs.region.value}'
+order by sort_order, label
 ```
 
-```sql bookings
-select * from gtm.bookings_month
+```sql movers
+select *
+from gtm.executive_mover
+where month_key = '${inputs.period.value}'
+  and segment = '${inputs.segment.value}'
+  and region = '${inputs.region.value}'
+order by side, rank
 ```
 
 ```sql freshness
-select * from gtm.connector_freshness
+select * from gtm.connector_freshness order by connector_id
 ```
 
 ```sql events
 select * from gtm.chart_events
 ```
 
-<ExecutiveView
-  plan={plan}
-  bridge={bridge}
-  movement={movement}
-  nrr={nrr}
-  commentary={commentary}
-  bookings={bookings}
-  freshness={freshness}
-  events={events}
-/>
+<UrlSync keys="period,segment,region" defaults="period:2026-08-31,segment:All,region:All" />
+
+<ExecutiveView {kpi} {trend} {notes} {movers} {freshness} {events}>
+  <div slot="controls">
+    <Dropdown name="period" title="Period" data={periods} defaultValue="2026-08-31" />
+    <Dropdown name="segment" title="Segment" defaultValue="All">
+      <DropdownOption value="All" valueLabel="All" />
+      <DropdownOption value="Enterprise" valueLabel="Enterprise" />
+      <DropdownOption value="Mid-market" valueLabel="Mid-market" />
+      <DropdownOption value="SMB" valueLabel="SMB" />
+      <DropdownOption value="Startups" valueLabel="Startups" />
+      <DropdownOption value="Public sector" valueLabel="Public sector" />
+    </Dropdown>
+    <Dropdown name="region" title="Region" data={regions} defaultValue="All" />
+  </div>
+</ExecutiveView>

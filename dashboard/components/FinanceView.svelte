@@ -1,195 +1,110 @@
 <script>
-	import { onMount } from "svelte";
 	import ActualVsPlanLine from "./ActualVsPlanLine.svelte";
 	import ChartBlock from "./ChartBlock.svelte";
 	import KpiTile from "./KpiTile.svelte";
 	import PageFooter from "./PageFooter.svelte";
 	import PageHeader from "./PageHeader.svelte";
 	import SignedBridge from "./SignedBridge.svelte";
-	import SlicingBar from "./SlicingBar.svelte";
 	import SparklineTable from "./SparklineTable.svelte";
 	import StatusChip from "./StatusChip.svelte";
-	import Worklist from "./Worklist.svelte";
-	import { days, isoDate, money, monthLabel, percent } from "./format.js";
+	import { asRows, count, dayLabel, days, localMoney, money, monthLabel, percent } from "./format.js";
 
-	export let bookings = [];
-	export let bridge = [];
-	export let currency = [];
+	export let kpi = [];
+	export let currencies = [];
 	export let aging = [];
-	export let unbilled = [];
 	export let burn = [];
+	export let orders = [];
 	export let freshness = [];
 
-	const SEGMENT_ORDER = ["Enterprise", "Mid-market", "SMB", "Startups", "Public sector"];
-
-	let query = "";
-	onMount(() => {
-		query = window.location.search;
-	});
-
-	function list(value) {
-		if (!value) return [];
-		return Array.isArray(value) ? value : Array.from(value);
-	}
-	function setParam(name, value, blank = "All") {
-		const params = new URLSearchParams(window.location.search);
-		if (!value || value === blank) params.delete(name);
-		else params.set(name, value);
-		const next = params.toString();
-		history.replaceState(null, "", next ? `${location.pathname}?${next}` : location.pathname);
-		query = window.location.search;
-	}
-	function param(name) {
-		return new URLSearchParams(query).get(name) || "";
-	}
-	function sum(rows, key) {
-		return rows.reduce((total, row) => total + Number(row[key] || 0), 0);
+	function ago(row) {
+		const minutes = Number(row.age_minutes);
+		if (minutes < 60) return `${Math.round(minutes)}m ago`;
+		return `${Math.round(minutes / 60)}h ago`;
 	}
 
-	$: books = list(bookings);
-	$: bridges = list(bridge);
-	$: currencies = list(currency);
-	$: ages = list(aging);
-	$: orders = list(unbilled);
-	$: burns = list(burn);
-	$: fresh = list(freshness);
-
-	$: months = [...new Set(books.map((row) => isoDate(row.month_end)))].filter((month) => month && month <= "2026-08-31").sort();
-	$: period = months.includes(param("period")) ? param("period") : months[months.length - 1] || "";
-	$: segment = param("segment") || "All";
-	$: currencyName = param("currency") || "All";
-	$: sliceBits = [segment, currencyName].filter((value) => value && value !== "All");
-	$: sliceText = sliceBits.length ? `${sliceBits.join(" · ")} only` : "";
-	$: prior = months[months.indexOf(period) - 1] || "";
-
-	function bookRows(month) {
-		return books.filter((row) => isoDate(row.month_end) === month && (segment === "All" || row.segment === segment));
+	function tie(row) {
+		if (!row || row.currency === "Total") return null;
+		if (row.tie_out_status === "error") return { status: "error", measured: "JPY amount conversion" };
+		if (row.tie_out_status === "warn") return { status: "warn", measured: `${percent(row.unmatched_share)} unmatched, tolerance 1%` };
+		return { status: "pass" };
 	}
-	$: booked = sum(bookRows(period), "bookings_acv_usd");
-	$: bookedPrior = sum(bookRows(prior), "bookings_acv_usd");
-	$: flow = bridges.find((row) => isoDate(row.month_end) === period) || null;
-	$: billings = flow ? Number(flow.billings_usd) : null;
-	$: priorFlow = bridges.find((row) => isoDate(row.month_end) === prior) || null;
-	$: unbilledAmount = flow ? Number(flow.booked_not_billed_usd) : null;
-	$: shownCurrency = currencies.filter((row) => currencyName === "All" || row.currency === currencyName);
-	$: unmatched = shownCurrency.reduce((total, row) => total + Number(row.unmatched_usd || 0), 0);
-	$: unmatchedRatio = billings ? unmatched / billings : null;
 
-	$: steps = flow
-		? [
-				{ label: "Bookings", value: Number(flow.bookings_usd), role: "open" },
-				{ label: "Renewals", value: Number(flow.renewals_and_existing_usd), role: "up" },
-				{ label: "Usage overage", value: Number(flow.usage_overage_usd), role: "up" },
-				{ label: "Booked not billed", value: -Number(flow.booked_not_billed_usd), role: "down" },
-				{ label: "Cancels", value: -Number(flow.cancels_and_credits_usd), role: "down" },
-				{ label: "Billed without order", value: Number(flow.billed_without_order_usd), role: "up" },
-				{ label: "Billings", value: Number(flow.billings_usd), role: "close" },
-			]
-		: [];
-
-	$: currencyRows = shownCurrency.map((row) => ({
-		...row,
-		status: Math.abs(Number(row.unmatched_usd)) > 1000 ? "error" : Math.abs(Number(row.unmatched_usd)) > 1 ? "warn" : "pass",
-	}));
-
-	$: recent = ages.filter((row) => isoDate(row.month_end) >= "2026-03-01" && isoDate(row.month_end) <= period);
-	function series(key) {
-		return recent.map((row) => Number(row[key] || 0));
-	}
-	$: latest = recent[recent.length - 1] || {};
-	$: overShare = latest.ar_usd ? Number(latest.over_90_usd || 0) / Number(latest.ar_usd) : 0;
-	$: spark = [
-		{ name: "Current", values: series("current_usd") },
-		{ name: "1–30", values: series("bucket_1_30_usd") },
-		{ name: "31–90", values: series("bucket_31_90_usd") },
-		{ name: "Over 90", values: series("over_90_usd"), verdict: overShare > 0.02 ? "bad" : "" },
-		{ name: "Total AR", values: series("ar_usd") },
-		{
-			name: "DSO",
-			values: series("dso_days"),
-			display: days(latest.dso_days),
-			verdict: Number(latest.dso_days) > 45 ? "bad" : "",
-		},
-	];
-
-	$: burnMonths = burns.filter((row) => isoDate(row.month_end).startsWith("2026-") && isoDate(row.month_end) <= period);
-	$: openOrders = orders
-		.filter((row) => isoDate(row.month_end) === period && (segment === "All" || row.segment === segment))
+	$: row = asRows(kpi)[0] || {};
+	$: period = monthLabel(row.month_end);
+	$: sliceText = [row.currency, row.segment].filter((value) => value && value !== "All").join(" · ");
+	$: sources = asRows(freshness)
 		.slice()
-		.sort((a, b) => Number(b.amount_usd) - Number(a.amount_usd))
-		.map((row) => ({
-			name: row.account_name,
-			id: row.order_id,
-			description: row.segment,
-			age: Number(row.age_bd),
-			sla: Number(row.sla_bd),
-			amount: Number(row.amount_usd),
-			owner: row.owner_name,
-			action: "Create invoice →",
-			href: "#unbilled",
+		.sort((a, b) => (a.connector_id === "salesforce" ? -1 : 1))
+		.map((item) => ({
+			name: item.connector_id === "stripe" ? "Billing" : "Salesforce",
+			ago: ago(item),
+			sla: item.status === "PASS" ? "" : "24h",
+			late: item.status !== "PASS",
 		}));
 
-	$: filters = [
-		{ label: "Currency", value: currencyName, options: ["All", ...currencies.map((row) => row.currency)], active: currencyName !== "All" },
-		{ label: "Segment", value: segment, options: ["All", ...SEGMENT_ORDER], active: segment !== "All" },
+	function stepsOf(item) {
+		const steps = [
+			{ label: "Bookings", value: Number(item.bookings_usd), role: "open" },
+			{ label: "Renewals", value: Number(item.renewals_usd), role: "up" },
+			{ label: "Usage overage", value: Number(item.overage_usd), role: "up" },
+			{ label: "Booked not billed", value: -Number(item.booked_not_billed_usd), role: "down" },
+			{ label: "Cancels", value: -Number(item.cancels_usd), role: "down" },
+			{ label: "Billed without order", value: Number(item.billed_without_order_usd), role: "up" },
+			{ label: "Billings", value: Number(item.billings_usd), role: "close" },
+		];
+		return steps.filter((step) => step.role === "open" || step.role === "close" || Math.abs(step.value) >= 500);
+	}
+
+	$: steps = stepsOf(row);
+	$: ages = asRows(aging);
+	$: latest = ages[ages.length - 1] || {};
+	function series(key) {
+		return ages.map((item) => Number(item[key] || 0));
+	}
+	$: spark = [
+		{ name: "Current", values: series("current_usd"), compare: money(latest.current_vs_mar_usd, { signed: true }) },
+		{ name: "1–30", values: series("bucket_1_30_usd"), compare: money(latest.bucket_1_30_vs_mar_usd, { signed: true }) },
+		{ name: "31–90", values: series("bucket_31_90_usd"), compare: money(latest.bucket_31_90_vs_mar_usd, { signed: true }) },
+		{ name: "Over 90", values: series("over_90_usd"), compare: money(latest.over_90_vs_mar_usd, { signed: true }), verdict: latest.alert_over_90 ? "bad" : "" },
+		{ name: "Total AR", values: series("ar_usd"), compare: money(latest.ar_vs_mar_usd, { signed: true }) },
+		{ name: "DSO", values: series("dso_days"), display: days(latest.dso_days), compare: latest.dso_vs_mar == null ? "" : `${Number(latest.dso_vs_mar) > 0 ? "+" : ""}${Number(latest.dso_vs_mar).toFixed(1)}d`, verdict: latest.alert_dso ? "bad" : "" },
 	];
-	$: sources = fresh.map((row) => ({
-		name: row.connector === "Stripe" ? "Billing" : row.connector,
-		ago: Number(row.age_hours) < 1 ? `${Math.round(Number(row.age_minutes))}m ago` : `${Math.round(Number(row.age_hours))}h ago`,
-		sla: row.status === "PASS" ? "" : "24h",
-		late: row.status !== "PASS",
-	}));
+	$: burnRows = asRows(burn);
 </script>
 
 <PageHeader
-	eyebrow="Finance"
-	title={monthLabel(period)}
+	eyebrow="FINANCE · MONTH-END CLOSE"
+	title="Bookings to billings"
 	{sources}
-	asOf={fresh[0]?.as_of_date || ""}
+	asOf={asRows(freshness)[0]?.as_of_date || ""}
 	note="Close snapshot 3 Sep · no restatements since"
-	copyLabel="Copy link"
 	exportLabel="Export for close file"
-	exportRows={[{ bookings: booked, billings, booked_not_billed: unbilledAmount, unmatched }]}
+	exportRows={[row]}
 >
-	<SlicingBar
-		slot="controls"
-		periods={months.map((month) => ({ value: month, label: monthLabel(month) }))}
-		{period}
-		compare="prior"
-		compares={[{ value: "prior", label: "Prior month" }]}
-		{filters}
-		context={sliceText}
-		onChange={(patch) => {
-			if (patch.period) setParam("period", patch.period, "");
-			if (patch.filter === "Segment") setParam("segment", patch.value);
-			if (patch.filter === "Currency") setParam("currency", patch.value);
-		}}
-	/>
+	<div slot="controls" class="gtm-controls">
+		<slot name="controls" />
+	</div>
 </PageHeader>
 
 <div class="kpi-row">
-	<KpiTile label="Bookings" period={monthLabel(period)} value={booked} prior={bookedPrior} priorLabel={monthLabel(prior)} compareLabel="prior month" />
-	<KpiTile label="Billings" period={monthLabel(period)} value={billings} prior={priorFlow ? priorFlow.billings_usd : null} priorLabel={monthLabel(prior)} compareLabel="prior month" caveat={1} />
-	<KpiTile label="Booked not billed" value={unbilledAmount} plan={null} />
+	<KpiTile label="Bookings" period={period} value={row.bookings_usd} plan={row.bookings_plan_usd} prior={row.prior_bookings_usd} priorLabel="Jul 2026" />
+	<KpiTile label="Billings" period={period} value={row.billings_usd} prior={row.prior_billings_usd} priorLabel="Jul 2026" caveat={1} />
+	<KpiTile label="Booked not billed" period="month-end" value={row.booked_not_billed_usd} prior={row.prior_booked_not_billed_usd} priorLabel="Jul 2026" context={`${count(row.bnb_orders)} orders · ${count(row.bnb_past_sla)} past invoicing SLA`} />
 	<KpiTile
 		label="Unmatched invoices"
-		value={unmatched}
-		plan={billings ? billings * 0.01 : null}
-		higherIsBetter={false}
-		context={unmatchedRatio == null ? "" : `${percent(unmatchedRatio)} of billings · tolerance 1%`}
+		value={row.unmatched_usd}
+		verdictText={`${percent(row.unmatched_share)} of billings · tolerance 1%`}
+		verdictColor={Number(row.unmatched_share) > 0.01 ? "var(--color-unfavorable)" : "var(--color-ink)"}
+		context={`${count(row.unmatched_invoices)} invoices · Jul: ${count(row.prior_unmatched_invoices)}`}
 	/>
 </div>
 
-<ChartBlock title="Bookings to billings, {monthLabel(period).replace(/ \d{4}$/, '')}" subtitle={sliceText || "Company"}>
+<ChartBlock title="Bookings to billings, {period.replace(/ \d{4}$/, '')}" subtitle={sliceText || "Company"}>
 	<div slot="toggle" class="inert" aria-label="Break down by">
 		<button type="button" class="on">None</button>
 		<button type="button">Currency</button>
 	</div>
-	{#if steps.length}
-		<SignedBridge {steps} zeroBased />
-	{:else}
-		<p>No closed snapshot for this month.</p>
-	{/if}
+	<SignedBridge {steps} zeroBased />
 </ChartBlock>
 
 <section class="block">
@@ -200,74 +115,86 @@
 				<th>Currency</th>
 				<th class="num">Booked</th>
 				<th class="num">Billed</th>
+				<th class="num">Billed (local)</th>
 				<th class="num">Unmatched</th>
 				<th>Tie-out</th>
 			</tr>
 		</thead>
 		<tbody>
-			{#each currencyRows as row}
+			{#each asRows(currencies) as item}
+				{@const chip = tie(item)}
 				<tr>
-					<td>{row.currency}</td>
-					<td class="num">{money(row.booked_usd)}</td>
-					<td class="num">{money(row.billed_usd)}</td>
-					<td class="num">{money(row.unmatched_usd)}</td>
-					<td><StatusChip status={row.status} measured={money(row.unmatched_usd)} /></td>
+					<td>{item.currency}</td>
+					<td class="num">{money(item.booked_usd)}</td>
+					<td class="num">{money(item.billed_usd)}</td>
+					<td class="num">{localMoney(item.currency, item.billed_local)}</td>
+					<td class="num">{money(item.unmatched_usd)}</td>
+					<td>{#if chip}<StatusChip status={chip.status} measured={chip.measured || ""} />{/if}</td>
 				</tr>
 			{/each}
-			<tr>
-				<td>Total</td>
-				<td class="num">{money(sum(currencyRows, "booked_usd"))}</td>
-				<td class="num">{money(sum(currencyRows, "billed_usd"))}</td>
-				<td class="num">{money(unmatched)}</td>
-				<td></td>
-			</tr>
 		</tbody>
 	</table>
 </section>
 
 <div class="two-up even">
-	<ChartBlock title="Receivables aging by bucket" subtitle="Mar–{monthLabel(period).slice(0, 3)}">
-		<SparklineTable rows={spark} />
+	<ChartBlock title="Receivables aging by bucket" subtitle="Mar–{period.slice(0, 3)}">
+		<SparklineTable rows={spark} nameHeader="Bucket" compareHeader="vs Mar" />
 	</ChartBlock>
-	<ChartBlock title="Usage commit burn vs straight line" subtitle={sliceText || "Company"}>
+	<ChartBlock title="Usage commit burn vs straight line" subtitle={sliceText || "Annual commits active 1 Jan"}>
 		<ActualVsPlanLine
-			labels={burnMonths.map((row) => monthLabel(row.month_end))}
-			actual={burnMonths.map((row) => Number(row.share_consumed))}
-			plan={burnMonths.map((row) => Number(row.straight_line))}
+			labels={burnRows.map((item) => monthLabel(item.month_end))}
+			actual={burnRows.map((item) => Number(item.share_consumed))}
+			plan={burnRows.map((item) => Number(item.straight_line))}
 			actualName="Consumed"
 			planName="Straight line"
-			format={percent}
-			band="flow"
+			format={(value) => percent(value, 1)}
+			axisFormat={(value) => percent(value)}
+			yDomain={{ min: 0, max: 0.8, ticks: [0, 0.2, 0.4, 0.6, 0.8] }}
+			pointGap
 		/>
 	</ChartBlock>
 </div>
 
 <section id="unbilled">
-	<ChartBlock title="Booked, not billed" subtitle={sliceText || monthLabel(period)}>
-		<Worklist rows={openOrders} />
+	<ChartBlock title="Booked, not billed" subtitle={sliceText || period}>
+		<table>
+			<thead>
+				<tr>
+					<th>Account</th>
+					<th>Product, activated</th>
+					<th>Age vs SLA</th>
+					<th class="num">Amount</th>
+					<th>Owner</th>
+				</tr>
+			</thead>
+			<tbody>
+				{#each asRows(orders) as item}
+					<tr>
+						<td>
+							<div>{item.account_name}</div>
+							<div class="id">{item.order_id}</div>
+						</td>
+						<td>{item.product_code}, {dayLabel(item.effective_date)}</td>
+						<td class:bad={Number(item.age_bd) > Number(item.sla_bd)}>{item.age_bd}d / {item.sla_bd}d</td>
+						<td class="num">{money(item.amount_usd)}</td>
+						<td>{item.owner_name}</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
 	</ChartBlock>
 </section>
 
 <PageFooter
 	footnotes={[{ n: 1, text: "Billing synced past its 24h SLA. Billings and unmatched invoices can still move." }]}
 	definitions={[{ label: "Bookings" }, { label: "Billings" }, { label: "Booked not billed" }, { label: "DSO" }]}
-	models={["fct_bookings_monthly", "fct_bookings_billings_bridge", "fct_billings_by_currency", "fct_ar_aging", "fct_commit_consumption"]}
+	models={["rpt_finance_month", "rpt_finance_currency", "rpt_commit_burn", "fct_ar_aging"]}
 />
 
 <style>
-	h2 {
-		margin: 0 0 12px;
-		font-size: 18px;
-		font-weight: 600;
-	}
-	.block {
-		margin: 8px 0 28px;
-	}
-	table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: 14px;
-	}
+	h2 { margin: 0 0 12px; font-size: 18px; font-weight: 600; }
+	.block { margin: 8px 0 28px; }
+	table { width: 100%; border-collapse: collapse; font-size: 14px; }
 	th {
 		text-align: left;
 		font-size: 12px;
@@ -276,14 +203,9 @@
 		border-bottom: 1px solid var(--color-ink);
 		padding: 0 12px 8px 0;
 	}
-	td {
-		border-bottom: 1px solid var(--color-rule);
-		padding: 12px 12px 12px 0;
-	}
-	.num {
-		text-align: right;
-	}
-	th.num {
-		text-align: right;
-	}
+	td { border-bottom: 1px solid var(--color-rule); padding: 12px 12px 12px 0; }
+	.num { text-align: right; }
+	th.num { text-align: right; }
+	.id { font-size: 12px; color: var(--color-context); }
+	.bad { color: var(--color-unfavorable); }
 </style>

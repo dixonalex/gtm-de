@@ -72,13 +72,6 @@ CALL_WEEKS = [
     dt.date(2026, 8, 31), dt.date(2026, 9, 7), dt.date(2026, 9, 14), dt.date(2026, 9, 21),
     dt.date(2026, 9, 28),
 ]
-QUOTA_WEIGHTS = {
-    "Enterprise": 7.2,
-    "Mid-market": 3.6,
-    "SMB": 1.3,
-    "Startups": 0.9,
-    "Public sector": 1.8,
-}
 COMMIT = {
     "Enterprise": 6_100_000,
     "Mid-market": 3_900_000,
@@ -257,17 +250,41 @@ def write_plans() -> None:
             })
     pd.DataFrame(plan_rows).to_csv(SEEDS / "plan_monthly.csv", index=False)
 
-    weight = sum(QUOTA_WEIGHTS.values())
     commit_weight = sum(COMMIT.values())
     quota_total = float(won) / WON_OF_QUOTA
     commit_total = COMMIT_OF_QUOTA * quota_total
+    # Commit shares keep the contract shape, then a small shift from Public sector
+    # to Mid-market makes commit/quota land on 85/108/100/100/67 while the company
+    # totals stay 81% won and 91% commit.
+    targets = {
+        "Enterprise": 0.85,
+        "Mid-market": 1.08,
+        "SMB": 1.00,
+        "Startups": 1.00,
+        "Public sector": 0.67,
+    }
+    shares = {segment: COMMIT[segment] / commit_weight for segment in COMMIT}
+    need = 1 / COMMIT_OF_QUOTA
+    low, high = 0.0, shares["Public sector"]
+    for _ in range(60):
+        mid = (low + high) / 2
+        trial = dict(shares)
+        trial["Public sector"] -= mid
+        trial["Mid-market"] += mid
+        if sum(trial[segment] / targets[segment] for segment in trial) > need:
+            low = mid
+        else:
+            high = mid
+    shares["Public sector"] -= low
+    shares["Mid-market"] += low
     quota_rows = []
-    for segment, w in QUOTA_WEIGHTS.items():
+    for segment in COMMIT:
+        commit_usd = commit_total * shares[segment]
         quota_rows.append({
             "quarter_start": "2026-07-01",
             "segment": segment,
-            "quota_usd": quota_total * w / weight,
-            "commit_usd": commit_total * COMMIT[segment] / commit_weight,
+            "quota_usd": commit_usd / targets[segment],
+            "commit_usd": commit_usd,
         })
     pd.DataFrame(quota_rows).to_csv(SEEDS / "quota_quarterly.csv", index=False)
 

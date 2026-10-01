@@ -1,16 +1,26 @@
 <script>
-	import { RATE_BAND_PTS, money, percent, verdictRate } from "./format.js";
+	import { RATE_BAND_PTS, money, percent } from "./format.js";
 
 	export let label = "";
 	export let period = "";
 	export let value = 0;
 	export let quota = 1;
 	export let tickLabel = "quota";
+	export let compact = false;
+	export let bandPts = RATE_BAND_PTS;
 
 	$: attainment = quota ? Number(value) / Number(quota) : 0;
-	$: tone = verdictRate(attainment, 1, true);
+	$: pts = (attainment - 1) * 100;
+	$: tone =
+		quota == null || quota === ""
+			? { state: "missing", color: "var(--color-ink)" }
+			: Math.abs(pts) <= bandPts + 1e-9
+				? { state: "inside", color: "var(--color-ink)" }
+				: pts > 0
+					? { state: "favorable", color: "var(--color-favorable)" }
+					: { state: "unfavorable", color: "var(--color-unfavorable)" };
 	$: width = (Math.max(0, Math.min(attainment, 1.5)) / 1.5) * 100;
-	$: limit = RATE_BAND_PTS / 100;
+	$: limit = bandPts / 100;
 	$: bandLeft = ((1 - limit) / 1.5) * 100;
 	$: bandWidth = ((2 * limit) / 1.5) * 100;
 	$: gap = Number(value) - Number(quota);
@@ -20,9 +30,9 @@
 			: `${percent(attainment)} of quota · ${money(gap, { signed: true })}`;
 </script>
 
-<article class="bullet">
+<article class="bullet" class:compact>
 	<p class="label">{label}{period ? ` · ${period}` : ""}</p>
-	<p class="value num">{money(value)}</p>
+	{#if !compact}<p class="value num">{money(value)}</p>{/if}
 	<div class="track" aria-hidden="true">
 		<div class="band" style="left: {bandLeft}%; width: {bandWidth}%"></div>
 		<div class="tick"></div>
@@ -41,6 +51,19 @@
 		min-width: 0;
 		border-top: 1px solid var(--color-ink);
 		padding-top: 16px;
+	}
+	.compact {
+		border-top: 0;
+		padding-top: 0;
+	}
+	.compact .label {
+		margin-bottom: 4px;
+	}
+	.compact .track {
+		margin-top: 4px;
+	}
+	.compact .scale {
+		display: none;
 	}
 	.label {
 		margin: 0 0 8px;

@@ -35,7 +35,17 @@ slipped as (
              and c.previous_close_date between q.quarter_start and q.quarter_end
              and c.close_date > q.quarter_end
             then 1 else 0
-        end) as slipped_this_week
+        end) as slipped_this_week,
+        arg_max(
+            c.previous_close_date,
+            case
+                when c.changed_on >= q.week_start
+                 and c.changed_on <= {{ as_of_date() }}
+                 and c.previous_close_date between q.quarter_start and q.quarter_end
+                 and c.close_date > q.quarter_end
+                then c.changed_on
+            end
+        ) as previous_close_date
     from changes c
     cross join quarter q
     group by c.opportunity_id
@@ -49,6 +59,7 @@ select
     o.amount as amount_local,
     o.amount / coalesce(fx.conversion_rate, 1) as amount_usd,
     o.close_date,
+    s.previous_close_date,
     s.slip_count
 from slipped s
 inner join {{ ref('stg_salesforce__opportunity') }} o

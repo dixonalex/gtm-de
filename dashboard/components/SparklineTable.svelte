@@ -2,6 +2,8 @@
 	import { money } from "./format.js";
 
 	export let rows = [];
+	export let nameHeader = "Account";
+	export let compareHeader = "";
 
 	function points(values) {
 		if (!values || values.length < 2) return "";
@@ -30,9 +32,10 @@
 <table>
 	<thead>
 		<tr>
-			<th>Account</th>
+			<th>{nameHeader}</th>
 			<th>Trend</th>
 			<th class="num">Latest</th>
+			{#if compareHeader}<th class="num">{compareHeader}</th>{/if}
 		</tr>
 	</thead>
 	<tbody>
@@ -54,6 +57,7 @@
 					</svg>
 				</td>
 				<td class="num latest" class:bad={row.verdict === "bad"}>{row.display || money(row.values[row.values.length - 1])}</td>
+				{#if compareHeader}<td class="num">{row.compare || ""}</td>{/if}
 			</tr>
 		{/each}
 	</tbody>

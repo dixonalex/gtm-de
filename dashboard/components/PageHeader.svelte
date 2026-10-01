@@ -9,6 +9,7 @@
 	export let exportRows = [];
 	export let copyLabel = "Copy link to this view";
 	export let exportLabel = "Export CSV";
+	export let asideLines = [];
 
 	let copied = false;
 
@@ -65,8 +66,12 @@
 				</p>
 			{/each}
 		</div>
-		{#if asOfLabel}<p class="asof">Data as of {asOfLabel}</p>{/if}
-		{#if note}<p class="note">{note}</p>{/if}
+		{#if asideLines.length}
+			{#each asideLines as line}<p class="note">{line}</p>{/each}
+		{:else}
+			{#if asOfLabel}<p class="asof">Data as of {asOfLabel}</p>{/if}
+			{#if note}<p class="note">{note}</p>{/if}
+		{/if}
 		<p class="links">
 			<button type="button" on:click={copyLink}>{copied ? "Link copied" : copyLabel}</button>
 			<button type="button" on:click={exportCsv}>{exportLabel}</button>

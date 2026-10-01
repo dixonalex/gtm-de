@@ -407,6 +407,142 @@ def main() -> None:
     ).fetchone()[0]
     check("won without order ~4%", 0.03 <= won_rate <= 0.05, f"{won_rate:.3%}")
 
+    ratios = dict(con.execute(
+        """
+        select segment, commit_usd / quota_usd
+        from seeds.quota_quarterly
+        where quarter_start = date '2026-07-01'
+        """
+    ).fetchall())
+    expected_ratios = {
+        "Enterprise": 0.85, "Mid-market": 1.08, "SMB": 1.0,
+        "Startups": 1.0, "Public sector": 0.67,
+    }
+    for segment, expected in expected_ratios.items():
+        check(f"commit/quota {segment}", abs(ratios[segment] - expected) < 0.005, f"{ratios[segment]:.3f}")
+
+    booking_months = [r[0] for r in con.execute(
+        """
+        select sum(bookings_acv_usd)
+        from marts.fct_bookings_monthly
+        where month_end between date '2026-01-31' and date '2026-08-31'
+        group by month_end
+        order by month_end
+        """
+    ).fetchall()]
+    booking_mean = sum(booking_months) / len(booking_months)
+    booking_band = all(0.50 * booking_mean <= value <= 1.75 * booking_mean for value in booking_months)
+    check(
+        "bookings months inside 50-175% of the mean",
+        booking_band,
+        ", ".join(f"{value / booking_mean:.0%}" for value in booking_months),
+    )
+
+    slip_dates = con.execute(
+        """
+        select previous_close_date, close_date
+        from marts.fct_slipped_deals
+        """
+    ).fetchall()
+    olds = {r[0] for r in slip_dates}
+    news = {r[1] for r in slip_dates}
+    check(
+        "slip dates vary across late September and Q4",
+        len(olds) >= 4 and len(news) >= 4
+        and all(dt.date(2026, 9, 16) <= r[0] <= dt.date(2026, 9, 30) for r in slip_dates)
+        and all(r[1] > dt.date(2026, 9, 30) for r in slip_dates),
+        f"{len(olds)} prior, {len(news)} new",
+    )
+
+    unmatched_aug = con.execute(
+        """
+        select upper(i.currency), count(distinct b.invoice_id)
+        from marts.fct_billings b
+        inner join staging.stg_billing__invoice i on b.invoice_id = i.invoice_id
+        where b.order_id is null
+          and b.invoice_date between date '2026-08-01' and date '2026-08-31'
+        group by 1
+        order by 1
+        """
+    ).fetchall()
+    unmatched_jul = con.execute(
+        """
+        select count(distinct invoice_id)
+        from marts.fct_billings
+        where order_id is null
+          and invoice_date between date '2026-07-01' and date '2026-07-31'
+        """
+    ).fetchone()[0]
+    status = dict(con.execute(
+        "select currency, tie_out_status from marts.fct_billings_by_currency"
+    ).fetchall())
+    check(
+        "August unmatched invoices are USD, EUR, and JPY",
+        sorted(r[0] for r in unmatched_aug) == ["EUR", "JPY", "USD"] and all(r[1] == 1 for r in unmatched_aug),
+        str(unmatched_aug),
+    )
+    check("July has one unmatched invoice", unmatched_jul == 1, str(unmatched_jul))
+    check("USD unmatched is a warning", status.get("USD") == "warn", str(status))
+    check("EUR unmatched is a warning", status.get("EUR") == "warn", str(status))
+    check("JPY conversion is an error", status.get("JPY") == "error", str(status))
+
+    booked_vs_kpi = con.execute(
+        """
+        select
+            (select sum(booked_usd) from marts.fct_billings_by_currency),
+            (select bookings_usd from marts.fct_bookings_billings_bridge)
+        """
+    ).fetchone()
+    check(
+        "currency booked sums to August bookings",
+        abs(booked_vs_kpi[0] - booked_vs_kpi[1]) < 1,
+        f"{booked_vs_kpi[0]:,.0f} vs {booked_vs_kpi[1]:,.0f}",
+    )
+
+    burn = con.execute(
+        """
+        select share_consumed, straight_line
+        from marts.fct_commit_consumption
+        order by month_end
+        """
+    ).fetchall()
+    check(
+        "commit burn is monotonic",
+        all(b[0] + 1e-9 >= a[0] and b[1] + 1e-9 >= a[1] for a, b in zip(burn, burn[1:])),
+        f"{len(burn)} months",
+    )
+
+    issues = con.execute(
+        "select issue_type, age_days from marts.rpt_known_issues order by sort_order"
+    ).fetchall()
+    check(
+        "backlog is the four known issue types",
+        [r[0] for r in issues] == [
+            "Invoices missing order metadata",
+            "Duplicate account pairs pending review",
+            "Late-arriving Salesforce rows",
+            "Won without an order",
+        ] and all(r[1] <= 30 for r in issues),
+        str(issues),
+    )
+
+    families = con.execute(
+        """
+        select family, count(*), sum(failure_count)
+        from marts.rpt_test_history
+        group by family
+        order by family
+        """
+    ).fetchall()
+    by_family = {row[0]: row for row in families}
+    check(
+        "test history has four families on 30 days, uniqueness at zero",
+        set(by_family) == {"freshness", "reconciliation", "relationships", "uniqueness"}
+        and all(row[1] == 30 for row in families)
+        and by_family["uniqueness"][2] == 0,
+        str(families),
+    )
+
     screens["executive"] = {
         "august_bridge": {
             "opening": aug[0], "new": aug[1], "expansion": aug[2],

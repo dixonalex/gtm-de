@@ -1,0 +1,5 @@
+issue_key,issue_type,handling_rule,age_days,sort_order
+invoices_missing_order,Invoices missing order metadata,Leave them unmatched; the currency tie-out flags anything outside 1%,12,1
+duplicate_pairs,Duplicate account pairs pending review,A steward approves or rejects each pair in the review queue,8,2
+late_salesforce,Late-arriving Salesforce rows,They load on the next sync; freshness stays inside the SLA,3,3
+won_without_order,Won without an order,Deal Desk holds the win until the order arrives,6,4

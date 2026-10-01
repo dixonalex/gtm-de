@@ -1188,8 +1188,9 @@ def main():
     from story import plant_story
     plant_story(g)
     g.build_billing()
-    from story import plant_billing_defects
+    from story import plant_billing_defects, rebalance_fy26_bookings
     plant_billing_defects(g)
+    rebalance_fy26_bookings(g)
     g.mark_won_without_order()
     g.finalize_accounts()
     g.assign_loaded_at()

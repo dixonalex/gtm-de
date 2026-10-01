@@ -1,6 +1,6 @@
 <script>
 	import ChartCanvas from "./ChartCanvas.svelte";
-	import { BAND, axisMoney, money } from "./format.js";
+	import { BAND, axisMoney, money, points } from "./format.js";
 	import { CONTEXT, FOCUS, MUTED, RULE, UNFAVORABLE, axisWindow, text, valueAxisTicks } from "./chartTheme.js";
 
 	export let labels = [];
@@ -13,6 +13,9 @@
 	export let actualName = "Actual";
 	export let planName = "Plan";
 	export let format = money;
+	export let axisFormat = axisMoney;
+	export let yDomain = null;
+	export let pointGap = false;
 
 	const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -35,8 +38,9 @@
 	$: gaps = actual.map((value, i) => value - (plan[i] || 0));
 	$: last = actual.length - 1;
 	$: delta = last >= 0 ? actual[last] - (plan[last] || 0) : 0;
-	$: outside = last >= 0 && gapOutside(delta, plan[last]);
-	$: level = axisWindow(Math.min(...actual, ...plan), Math.max(...actual, ...plan));
+	$: gapPts = last >= 0 ? (actual[last] - plan[last]) * 100 : 0;
+	$: outside = pointGap ? Math.abs(gapPts) > 5 + 1e-9 : last >= 0 && gapOutside(delta, plan[last]);
+	$: level = yDomain || axisWindow(Math.min(...actual, ...plan), Math.max(...actual, ...plan));
 	$: gapAxis = (() => {
 		const window = axisWindow(Math.min(...gaps, 0), Math.max(...gaps, 0));
 		const step = window.ticks.length > 1 ? Math.abs(window.ticks[1] - window.ticks[0]) : 1;
@@ -70,7 +74,7 @@
 			splitLine: { show: false },
 		})),
 		yAxis: [
-			valueAxisTicks(level, (value) => axisMoney(value)),
+			valueAxisTicks(level, (value) => axisFormat(value)),
 			...(showGap ? [{ ...valueAxisTicks(gapAxis, (value) => axisMoney(value)), gridIndex: 1 }] : []),
 		],
 		series: [
@@ -128,7 +132,7 @@
 						{ text: `${planName} ${format(plan[last])}`, y: planTop, fill: CONTEXT, weight: 400, size: 12 },
 						{ text: `${actualName} ${format(actual[last])}`, y: actualTop, fill: FOCUS, weight: 600, size: 13 },
 						{
-							text: `${money(delta, { signed: true })} vs plan`,
+							text: pointGap ? points(gapPts) : `${money(delta, { signed: true })} vs plan`,
 							y: actualTop + lineH,
 							fill: outside ? UNFAVORABLE : MUTED,
 							weight: 400,
@@ -186,7 +190,7 @@
 <ChartCanvas {option} height={showGap ? height + 120 : height} />
 <p class="sr">
 	{actualName} {format(actual[actual.length - 1])}. {planName} {format(plan[plan.length - 1])}.
-	{#if showGap}Gap {money(actual[actual.length - 1] - plan[plan.length - 1], { signed: true })}.{/if}
+	{#if pointGap}Gap {points(gapPts)}.{:else if showGap}Gap {money(actual[actual.length - 1] - plan[plan.length - 1], { signed: true })}.{/if}
 </p>
 
 <style>

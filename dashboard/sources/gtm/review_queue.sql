@@ -8,7 +8,15 @@ select
     website_b,
     billing_country_a,
     billing_country_b,
-    name_edit_distance,
-    match_score,
-    arr_at_stake_usd
+    arr_at_stake_usd,
+    case
+        when billing_country_a = billing_country_b and name_edit_distance <= 1
+            then 'Same country · names ' || cast(name_edit_distance as integer) || ' edit apart'
+        when billing_country_a = billing_country_b then 'Same country'
+        else null
+    end as signal_for,
+    case
+        when website_a is distinct from website_b then 'Different domain'
+        else null
+    end as signal_against
 from dq.dq_account_review_queue

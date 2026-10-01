@@ -1,36 +1,36 @@
 {
   "executive": {
     "august_bridge": {
-      "opening": 122062048.3389211,
-      "new": 3595332.3336481284,
+      "opening": 122062522.25208102,
+      "new": 3579482.893049729,
       "expansion": 1563238.7665773034,
       "contraction": -571805.6119630864,
       "churn": -400000.0,
       "reactivation": 0.0,
-      "closing": 126248813.82718343
+      "closing": 126233438.29974496
     },
     "arr_by_month": {
-      "2026-01-31": 104428263.61121419,
-      "2026-02-28": 109823628.25692171,
-      "2026-03-31": 114272148.64659327,
-      "2026-04-30": 116596754.85020623,
-      "2026-05-31": 118478401.4581502,
-      "2026-06-30": 120406492.61017141,
-      "2026-07-31": 122062048.33892113,
-      "2026-08-31": 126248813.82718338
+      "2026-01-31": 104406750.80579439,
+      "2026-02-28": 109788078.64483282,
+      "2026-03-31": 114226696.51208311,
+      "2026-04-30": 116572760.93566808,
+      "2026-05-31": 118454407.54361199,
+      "2026-06-30": 120391798.20636463,
+      "2026-07-31": 122062522.25208105,
+      "2026-08-31": 126233438.29974493
     },
     "enterprise_arr": 63756969.775485456,
-    "nrr": 1.028932881400198,
-    "grr": 0.9137367880802768,
-    "won_qtd": 11525963.857748749
+    "nrr": 1.0289328814001968,
+    "grr": 0.9137367880802764,
+    "won_qtd": 11525282.73411703
   },
   "sales": {
-    "won_qtd": 11525963.857748749,
-    "quota": 14229585.009566354,
-    "commit": 12948922.358705387,
-    "week_5_commit": 14011893.6,
-    "week_13_commit": 12948922.36,
-    "week_13_best_case": 13802697.46,
+    "won_qtd": 11525282.73411703,
+    "quota": 14228744.11619386,
+    "commit": 12948157.145736415,
+    "week_5_commit": 14011065.57,
+    "week_13_commit": 12948157.15,
+    "week_13_best_case": 13801881.79,
     "slipped_amount": 1100000.0,
     "slipped_deals": [
       {
@@ -142,37 +142,37 @@
     ]
   },
   "finance": {
-    "bookings": 6433535.30326827,
-    "renewals_and_existing": 6003489.172010061,
+    "bookings": 6417685.862669868,
+    "renewals_and_existing": 6019338.6126084635,
     "usage_overage": 230189.16977494853,
     "booked_not_billed": 1800000.0,
     "cancels_and_credits": 152.27629688089613,
-    "billed_without_order": 180000.0,
-    "billings": 11047061.368756399,
-    "ar_current": 8891963.454459172,
+    "billed_without_order": 300000.0005461959,
+    "billings": 11167061.369302595,
+    "ar_current": 9011963.455005366,
     "ar_1_30": 2173994.18967033,
     "ar_31_90": 4279260.018446604,
     "ar_over_90": 401628.4886849199,
-    "dso_days": 45.057948916944234,
-    "active_commits": 397,
-    "commit_usd": 38544694.95612117,
-    "share_consumed": 0.4068855933142219,
-    "straight_line": 0.4944661737152968,
+    "dso_days": 45.17404461250971,
+    "active_commits": 97,
+    "commit_usd": 12737707.975929692,
+    "share_consumed": 0.6551248345123653,
+    "straight_line": 0.7619657180219931,
     "booked_not_billed_orders": [
-      {
-        "account": "Quillon Systems",
-        "amount": 350000.0,
-        "age_bd": 4
-      },
       {
         "account": "Harbor & Pine",
         "amount": 410000.0,
         "age_bd": 7
       },
       {
-        "account": "Arden Biotech",
-        "amount": 180000.0,
-        "age_bd": 1
+        "account": "Solace Robotics",
+        "amount": 620000.0,
+        "age_bd": 12
+      },
+      {
+        "account": "Quillon Systems",
+        "amount": 350000.0,
+        "age_bd": 4
       },
       {
         "account": "Tern Logistics",
@@ -180,19 +180,19 @@
         "age_bd": 2
       },
       {
-        "account": "Solace Robotics",
-        "amount": 620000.0,
-        "age_bd": 12
+        "account": "Arden Biotech",
+        "amount": 180000.0,
+        "age_bd": 1
       }
     ]
   },
   "data_health": {
-    "salesforce": "PASS",
     "fct_arr_monthly": "PASS",
-    "fct_pipeline_snapshot": "PASS",
     "rpt_bookings_to_billings": "ERROR",
+    "fct_pipeline_snapshot": "PASS",
     "fct_bookings": "PASS",
     "fct_billings": "WARN",
-    "stripe": "WARN"
+    "stripe": "WARN",
+    "salesforce": "PASS"
   }
 }

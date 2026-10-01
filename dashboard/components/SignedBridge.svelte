@@ -120,6 +120,8 @@
 			axisLabel: {
 				...axis.axisLabel,
 				interval: 0,
+				hideOverlap: false,
+				overflow: "none",
 				lineHeight: 14,
 				color: (value) => {
 					const step = steps.find((item) => tick(item.label) === value);

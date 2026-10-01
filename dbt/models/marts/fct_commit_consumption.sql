@@ -17,6 +17,9 @@ with commits as (
     where p.product_code = 'API-COMMIT'
       and o.status = 'Activated'
       and oi.quantity > 0
+      and o.effective_date <= date '2026-01-01'
+      and oi.end_date >= date '2026-08-31'
+      and date_diff('day', o.effective_date, oi.end_date) between 300 and 400
 ),
 
 months as (

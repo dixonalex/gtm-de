@@ -25,13 +25,13 @@ invoice_usd as (
 booked as (
     select
         o.currency_iso_code as currency,
-        sum(b.bookings_acv_usd + b.one_time_usd) as booked_usd
+        sum(b.bookings_acv_usd) as booked_usd
     from {{ ref('fct_bookings') }} b
     inner join {{ ref('stg_salesforce__order') }} o
         on b.order_id = o.order_id
     cross join closed c
     where b.booking_date between c.month_start and c.month_end
-      and b.booking_type in ('new', 'expansion', 'renewal')
+      and b.booking_type in ('new', 'expansion')
     group by o.currency_iso_code
 ),
 
@@ -51,7 +51,16 @@ select
     sum(u.billed_usd) as billed_usd,
     sum(u.unmatched_usd)
         + case when u.currency = 'JPY' then (select variance_usd from scale_defect) else 0 end
-        as unmatched_usd
+        as unmatched_usd,
+    case
+        when u.currency = 'JPY' then 'error'
+        when sum(u.billed_usd) > 0
+         and (
+            sum(u.unmatched_usd)
+            + case when u.currency = 'JPY' then (select variance_usd from scale_defect) else 0 end
+         ) / sum(u.billed_usd) > 0.01 then 'warn'
+        else 'pass'
+    end as tie_out_status
 from invoice_usd u
 left join booked k on u.currency = k.currency
 group by u.currency, k.booked_usd

@@ -14,6 +14,8 @@
 	export let context = "";
 	export let compareLabel = "plan";
 	export let caveat = 0;
+	export let verdictText = "";
+	export let verdictColor = "";
 
 	$: tone = format === "percent" ? verdictRate(value, plan, higherIsBetter) : verdict(value, plan, band, higherIsBetter);
 	$: vsPlan =
@@ -28,10 +30,10 @@
 			: formatDelta(value, prior, format).replace("vs plan", `vs ${sameYearLabel(priorLabel, period)}`);
 </script>
 
-<article class="tile">
+<article class="tile" data-kpi={label}>
 	<p class="label">{label}{period ? ` · ${period}` : ""}{#if caveat}<CaveatMarker n={caveat} />{/if}</p>
 	<p class="value num">{formatValue(value, format)}</p>
-	<p class="verdict num" style="color: {tone.color}">{vsCompare}</p>
+	<p class="verdict num" style="color: {verdictColor || tone.color}">{verdictText || vsCompare}</p>
 	<p class="context num">{contextLine}</p>
 </article>
 

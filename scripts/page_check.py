@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -58,6 +59,110 @@ def require(html: str, needles: list[str], page: str) -> list[str]:
     return missing
 
 
+def sliced_arr(numbers: dict) -> list[str]:
+    """Load /?segment=Enterprise and require the Committed ARR tile to be the rollup.
+
+    Evidence keeps the prerendered rows on the first input query, then runs DuckDB
+    in the browser. Virtual time ends before that query, so this waits on the clock.
+    """
+    port = "8765"
+    debug = "9223"
+    expected = money(numbers["executive"]["enterprise_arr"])
+    company = money(numbers["executive"]["august_bridge"]["closing"])
+    server = subprocess.Popen(
+        [sys.executable, "-m", "http.server", port, "--bind", "127.0.0.1"],
+        cwd=BUILD,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    browser = subprocess.Popen(
+        [
+            chrome,
+            "--headless=new",
+            "--disable-gpu",
+            "--hide-scrollbars",
+            f"--remote-debugging-port={debug}",
+            "--window-size=1440,900",
+            "about:blank",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    node = Path.home() / ".nvm/versions/node/v22.17.0/bin/node"
+    script = r"""
+const debugPort = process.argv[1];
+const pageUrl = process.argv[2];
+const expected = process.argv[3];
+const company = process.argv[4];
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+let target;
+for (let i = 0; i < 50 && !target; i++) {
+  try {
+    const opened = await fetch(`http://127.0.0.1:${debugPort}/json/new?${encodeURIComponent(pageUrl)}`, { method: "PUT" });
+    target = await opened.json();
+  } catch {
+    await sleep(100);
+  }
+}
+if (!target?.webSocketDebuggerUrl) {
+  console.log("NO_TARGET");
+  process.exit(0);
+}
+const ws = new WebSocket(target.webSocketDebuggerUrl);
+let seq = 0;
+const pending = new Map();
+ws.addEventListener("message", (event) => {
+  const message = JSON.parse(event.data);
+  const resolve = pending.get(message.id);
+  if (resolve) {
+    pending.delete(message.id);
+    resolve(message);
+  }
+});
+await new Promise((resolve) => ws.addEventListener("open", resolve, { once: true }));
+function send(method, params = {}) {
+  const id = ++seq;
+  return new Promise((resolve) => {
+    pending.set(id, resolve);
+    ws.send(JSON.stringify({ id, method, params }));
+  });
+}
+const expression = `document.querySelector('[data-kpi="Committed ARR"]')?.innerText || ""`;
+let text = "";
+for (let i = 0; i < 40; i++) {
+  const result = await send("Runtime.evaluate", { expression, returnByValue: true });
+  text = result.result?.result?.value || "";
+  if (text.includes(expected) && !text.includes(company)) break;
+  await sleep(500);
+}
+console.log(text.replaceAll("\n", " | "));
+ws.close();
+"""
+    try:
+        result = subprocess.run(
+            [str(node), "--input-type=module", "-e", script, debug, f"http://127.0.0.1:{port}/?segment=Enterprise", expected, company],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    finally:
+        browser.terminate()
+        server.terminate()
+        browser.wait(timeout=5)
+        server.wait(timeout=5)
+    text = result.stdout.strip()
+    if result.returncode != 0 or expected not in text or company in text:
+        print("sliced executive view failed", file=sys.stderr)
+        print(f"  expected {expected} in the Committed ARR tile", file=sys.stderr)
+        print(text or result.stderr[-500:], file=sys.stderr)
+        return ["enterprise slice"]
+    print(f"sliced view: Committed ARR {expected}")
+    return []
+
+
 def main() -> int:
     env = os.environ.copy()
     node = Path.home() / ".nvm/versions/node/v22.17.0/bin"
@@ -102,6 +207,10 @@ def main() -> int:
             percent(ex["grr"]),
             "No commentary yet",
             "Committed ARR vs plan, FY26",
+            "Revenue review",
+            "EXECUTIVE · MONTHLY",
+            "synced 12m ago",
+            "Copy link to this view",
         ],
         "executive",
     )
@@ -114,6 +223,8 @@ def main() -> int:
             money(sales["week_13_best_case"]),
             *[row["account"] for row in sales["slipped_deals"]],
             "Forecast call by week vs quota",
+            "Pipeline and forecast",
+            "Commit vs quota by segment, Q3",
         ],
         "sales",
     )
@@ -127,6 +238,8 @@ def main() -> int:
             str(desk["open_count"]),
             str(desk["resolved_count"]),
             *[row["account"] for row in desk["open_items"]],
+            "Quote-to-cash exceptions",
+            "resolved past SLA",
         ],
         "deal desk",
     )
@@ -148,9 +261,13 @@ def main() -> int:
             *health.values(),
             "Sources and models",
             "Test-failure history is simulated.",
+            "Pipeline and tests",
+            "Last dbt build 16:52 UTC",
+            "Next build 17:52 UTC · hourly",
         ],
         "data health",
     )
+    missing += sliced_arr(numbers)
     if missing:
         print(f"page-check failed: {len(missing)} missing strings", file=sys.stderr)
         return 1
