@@ -31,14 +31,14 @@ Rules you can check on the live site:
 
 <table>
 <tr>
-<td width="33%" valign="top"><b>Principles</b><br>The same data, before and after the rules<br><a href="docs/design/README.md#1--principles"><img src="docs/design/previews/do-and-dont.png" alt="Principles"></a></td>
-<td width="33%" valign="top"><b>Foundations</b><br>Status colors carry verdicts, never categories<br><a href="docs/design/README.md#2--foundations"><img src="docs/design/previews/color.png" alt="Foundations"></a></td>
-<td width="33%" valign="top"><b>Chart grammar</b><br>Rules every chart follows<br><a href="docs/design/README.md#3--chart-grammar"><img src="docs/design/previews/always-never.png" alt="Chart grammar"></a></td>
+<td width="33%" valign="top"><a href="docs/design/README.md#1--principles"><img src="docs/design/previews/do-and-dont.png" alt="Principles"></a><br><b>Principles</b><br>The same data, before and after the rules</td>
+<td width="33%" valign="top"><a href="docs/design/README.md#2--foundations"><img src="docs/design/previews/color.png" alt="Foundations"></a><br><b>Foundations</b><br>Status colors carry verdicts, never categories</td>
+<td width="33%" valign="top"><a href="docs/design/README.md#3--chart-grammar"><img src="docs/design/previews/always-never.png" alt="Chart grammar"></a><br><b>Chart grammar</b><br>Rules every chart follows</td>
 </tr>
 <tr>
-<td width="33%" valign="top"><b>Components</b><br>Ten, each with its states<br><a href="docs/design/README.md#4--components"><img src="docs/design/previews/c02-kpi-tile.png" alt="Components"></a></td>
-<td width="33%" valign="top"><b>Page templates</b><br>Six rules every page follows<br><a href="docs/design/README.md#5--page-templates"><img src="docs/design/previews/shared-rules.png" alt="Page templates"></a></td>
-<td width="33%" valign="top"><b>Applied screens</b><br>Designed vs built<br><a href="docs/design/README.md#6--applied-screens"><img src="docs/design/previews/t1-executive.png" alt="Applied screens"></a></td>
+<td valign="top"><a href="docs/design/README.md#4--components"><img src="docs/design/previews/c02-kpi-tile.png" alt="Components"></a><br><b>Components</b><br>Ten, each with its states</td>
+<td valign="top"><a href="docs/design/README.md#5--page-templates"><img src="docs/design/previews/shared-rules.png" alt="Page templates"></a><br><b>Page templates</b><br>Six rules every page follows</td>
+<td valign="top"><a href="docs/design/README.md#6--applied-screens"><img src="docs/design/previews/t1-executive.png" alt="Applied screens"></a><br><b>Applied screens</b><br>Designed vs built</td>
 </tr>
 </table>
 
