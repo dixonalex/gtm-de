@@ -1,6 +1,26 @@
 version: 2
 
 models:
+  - name: int_accounts__deduped_v2
+    description: Frozen dedup-rule-v2. Country- and parent-aware domain merge. Auto-merge edges for v3.
+    columns:
+      - name: account_id
+        data_tests: [unique, not_null]
+      - name: master_account_id
+        data_tests: [not_null]
+
+  - name: int_accounts__match_candidates
+    description: >
+      Blocked account pairs and a weighted match score. Auto-merge is the frozen v2 rule.
+      The review tier is applied downstream from match_score.
+    columns:
+      - name: account_id_a
+        data_tests: [not_null]
+      - name: account_id_b
+        data_tests: [not_null]
+      - name: match_score
+        data_tests: [not_null]
+
   - name: int_accounts__deduped_v1
     description: Frozen dedup-rule-v1. Same domain always merges. Used only to keep v1 eval numbers beside v2.
     columns:
