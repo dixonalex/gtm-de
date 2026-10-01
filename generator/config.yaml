@@ -1,0 +1,49 @@
+# Synthetic quote-to-cash source data. Everything is driven off `seed` and `as_of`;
+# with a pinned --as-of the output is byte-identical across runs.
+seed: 42
+history_months: 24
+
+volumes:
+  accounts: 2100
+  sales_reps: 30
+
+# Deal economics (USD list; local prices derived per currency)
+products:
+  - {code: SEAT-TEAM, name: "Platform Seats - Team",        family: "Subscription - Seats", uom: "Seat-Year",  list_usd: 360,   recurring: true}
+  - {code: SEAT-ENT,  name: "Platform Seats - Enterprise",  family: "Subscription - Seats", uom: "Seat-Year",  list_usd: 720,   recurring: true}
+  - {code: SUP-PREM,  name: "Premium Support",              family: "Subscription - Support", uom: "Each-Year", list_usd: 24000, recurring: true}
+  - {code: API-COMMIT,name: "Usage Commit - Annual",        family: "Consumption - Commit", uom: "Credit",     list_usd: 1,     recurring: true}
+  - {code: API-OVER,  name: "Usage Overage",                family: "Consumption - Overage", uom: "Credit",    list_usd: 1,     recurring: false, billing_only: true}
+  - {code: SVC-ONB,   name: "Onboarding Services",          family: "Services",             uom: "Each",       list_usd: 15000, recurring: false}
+
+currencies:            # corporate currency USD; rate = units per 1 USD
+  USD: {rate: 1.0,   weight: 0.68, countries: [US]}
+  EUR: {rate: 0.92,  weight: 0.12, countries: [DE, FR, NL, IE]}
+  GBP: {rate: 0.79,  weight: 0.10, countries: [GB]}
+  JPY: {rate: 150.0, weight: 0.05, countries: [JP]}
+  CAD: {rate: 1.36,  weight: 0.03, countries: [CA]}
+  AUD: {rate: 1.52,  weight: 0.02, countries: [AU]}
+
+funnel:
+  new_biz_win_rate: 0.28
+  expansion_win_rate: 0.55
+  renewal_win_rate: 0.86
+  expansion_rate: 0.35          # share of active contracts that spawn an expansion opp
+  retry_after_loss_rate: 0.40   # lost prospects that get another new-business opp later
+  sales_cycle_days: [25, 150]
+
+# Deliberate data-quality defects. Rates are per-eligible-record.
+mess:
+  won_without_order: 0.04          # Closed Won, ops never created the Order
+  won_without_order_billed: 0.35   # ...of which billing invoiced anyway, off-process
+  reduction_order: 0.05            # mid-term downsell via IsReductionOrder
+  cancelled_order: 0.02            # Order cancelled after activation
+  duplicate_account: 0.05          # same company, second Account record
+  amount_override: 0.02            # Opportunity.Amount hand-edited, != sum(lines)
+  deleted_opportunity: 0.01        # IsDeleted = true (soft delete)
+  invoice_missing_order_ref: 0.07  # Stripe invoice metadata lacks salesforce_order_id
+  partial_payment: 0.05
+  failed_then_retried: 0.04
+  late_arriving: 0.015             # _loaded_at 3-20 days after SystemModstamp
+  salesforce_sync_lag_minutes: 45  # last Salesforce connector sync = now - this
+  billing_sync_lag_hours: 30       # last billing connector sync = now - this (trips freshness warn)
