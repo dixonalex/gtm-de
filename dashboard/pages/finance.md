@@ -71,7 +71,7 @@ select * from gtm.connector_freshness order by connector_id
 
 <FinanceView kpi={kpi} currencies={currency_rows} {aging} {burn} {orders} {freshness}>
   <div slot="controls">
-    <Dropdown name="period" data={periods} label="label" defaultValue="2026-08-31" />
+    <Dropdown name="period" data={periods} label="label" order="value desc" defaultValue="2026-08-31" />
     <Dropdown name="currency" title="Currency" data={currencies_list} defaultValue="All" />
     <Dropdown name="segment" title="Segment" defaultValue="All">
       <DropdownOption value="All" valueLabel="All" />

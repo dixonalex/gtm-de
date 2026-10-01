@@ -152,7 +152,7 @@ main {
 }
 
 .two-up.bridge {
-	grid-template-columns: 1fr 1.35fr;
+	grid-template-columns: 1fr 1fr;
 }
 
 h1.title {
