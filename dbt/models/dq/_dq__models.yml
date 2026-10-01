@@ -34,10 +34,9 @@ models:
 
   - name: dq_backlog
     description: >
-      Open data-quality exceptions, including ones older than the 7-day incident window.
-      first_seen is _loaded_at for a late Salesforce row, CloseDate for Closed Won without
-      an order, and LastModifiedDate for an amount mismatch. age_days is measured from the
-      warehouse as-of date. usd_at_stake is null for arrival lag.
+      Open exceptions a person can act on: Closed Won with no order, and Closed Won amounts
+      that do not match the opportunity lines. first_seen is CloseDate or LastModifiedDate.
+      age_days is measured from the warehouse as-of date. Arrival lag is not a backlog item.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -51,7 +50,6 @@ models:
           - accepted_values:
               arguments:
                 values:
-                  - salesforce_arrival_lag
                   - closed_won_without_order
                   - closed_won_amount_line_mismatch
       - name: record_id
@@ -59,4 +57,26 @@ models:
       - name: first_seen
         data_tests: [not_null]
       - name: age_days
+        data_tests: [not_null]
+
+  - name: dq_arrival_lag_weekly
+    description: >
+      Salesforce arrival lag by object and week of _loaded_at. lag is hours from
+      SystemModstamp to _loaded_at. This is a timing distribution, not an actionable backlog.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - object_name
+              - week_start
+    columns:
+      - name: object_name
+        data_tests: [not_null]
+      - name: week_start
+        data_tests: [not_null]
+      - name: row_count
+        data_tests: [not_null]
+      - name: p50_lag_hours
+        data_tests: [not_null]
+      - name: p95_lag_hours
         data_tests: [not_null]

@@ -59,26 +59,25 @@ order by connector
     <Column id=status title="Status"/>
 </DataTable>
 
-```sql row_arrival
-select record_id, first_seen, age_days
-from gtm.backlog
-where exception_type = 'salesforce_arrival_lag'
-order by age_days desc
+```sql arrival_lag
+select week_start, object_name, p95_lag_hours
+from gtm.arrival_lag_weekly
+where week_start >= (select max(week_start) - interval '12 weeks' from gtm.arrival_lag_weekly)
+order by week_start
 ```
 
-```sql arrival_headline
-select count(*) as rows, max(age_days) as oldest_days
-from gtm.backlog
-where exception_type = 'salesforce_arrival_lag'
-```
+## Salesforce arrival lag, p95 hours
 
-## <Value data={arrival_headline} column=rows fmt=num0 /> Salesforce rows arrived late, oldest <Value data={arrival_headline} column=oldest_days fmt=num0 /> days
-
-<DataTable data={row_arrival} rows=15 search=true>
-    <Column id=record_id title="Record"/>
-    <Column id=first_seen title="First seen"/>
-    <Column id=age_days title="Age (days)" fmt=num0/>
-</DataTable>
+<LineChart
+    data={arrival_lag}
+    x=week_start
+    y=p95_lag_hours
+    series=object_name
+    yFmt=num0
+    xFmt=shortdate
+    height=220
+    legend=true
+/>
 
 ```sql tests
 select name, model, severity, status, failures
@@ -100,7 +99,6 @@ order by
 ```sql aging
 select
     case exception_type
-        when 'salesforce_arrival_lag' then 'Arrival lag'
         when 'closed_won_without_order' then 'Won without order'
         when 'closed_won_amount_line_mismatch' then 'Amount ≠ lines'
     end as exception_type,
@@ -119,7 +117,6 @@ order by age_bucket
 ```sql aging_headline
 select
     case exception_type
-        when 'salesforce_arrival_lag' then 'Arrival lag'
         when 'closed_won_without_order' then 'Won without order'
         when 'closed_won_amount_line_mismatch' then 'Amount ≠ lines'
     end as exception_type,

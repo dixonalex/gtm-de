@@ -12,36 +12,6 @@ latest_fx as (
     ) = 1
 ),
 
-late_rows as (
-    {% set grains = [
-        ('stg_salesforce__account', 'account_id'),
-        ('stg_salesforce__user', 'user_id'),
-        ('stg_salesforce__dated_conversion_rate', 'dated_conversion_rate_id'),
-        ('stg_salesforce__product2', 'product_id'),
-        ('stg_salesforce__pricebook2', 'pricebook_id'),
-        ('stg_salesforce__pricebook_entry', 'pricebook_entry_id'),
-        ('stg_salesforce__opportunity', 'opportunity_id'),
-        ('stg_salesforce__opportunity_history', 'opportunity_history_id'),
-        ('stg_salesforce__opportunity_line_item', 'opportunity_line_item_id'),
-        ('stg_salesforce__quote', 'quote_id'),
-        ('stg_salesforce__quote_line_item', 'quote_line_item_id'),
-        ('stg_salesforce__order', 'order_id'),
-        ('stg_salesforce__order_item', 'order_item_id'),
-    ] %}
-    {% for model_name, key in grains %}
-    select
-        'salesforce_arrival_lag' as exception_type,
-        {{ key }} as record_id,
-        cast(_loaded_at as date) as first_seen,
-        cast(null as double) as usd_at_stake
-    from {{ ref(model_name) }}
-    where _loaded_at > system_modstamp + interval '72 hours'
-    {% if not loop.last %}
-    union all
-    {% endif %}
-    {% endfor %}
-),
-
 won_without_order as (
     select
         'closed_won_without_order' as exception_type,
@@ -85,8 +55,6 @@ amount_mismatch as (
 ),
 
 open_exceptions as (
-    select * from late_rows
-    union all
     select * from won_without_order
     union all
     select * from amount_mismatch
