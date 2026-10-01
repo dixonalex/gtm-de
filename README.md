@@ -1,6 +1,6 @@
 # Quote to cash
 
-[![CI](https://github.com/bluelight-dixon/gtm-de/actions/workflows/ci.yml/badge.svg)](https://github.com/bluelight-dixon/gtm-de/actions/workflows/ci.yml)
+[![CI](https://github.com/dixonalex/gtm-de/actions/workflows/ci.yml/badge.svg)](https://github.com/dixonalex/gtm-de/actions/workflows/ci.yml)
 
 This is a synthetic quote-to-cash warehouse and the dashboard on top of it. A generator writes a Salesforce extract and a Stripe extract, dbt-duckdb builds the models, and [Evidence](https://evidence.dev) renders five GTM pages: Executive, Sales, Deal Desk, Finance, and Data health. A few data-quality failures are planted on purpose so the health page and the finance tie-out have something real to show.
 
