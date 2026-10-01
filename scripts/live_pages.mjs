@@ -509,6 +509,18 @@ try {
 		(text) => text.includes("severity=WARN"),
 		"data health URL after Warn",
 	);
+
+	if (basePath) {
+		const mark = bad.length;
+		await navigateWatch(
+			`${base}/dev/`,
+			`document.body.innerText`,
+			(text) => text.includes("KPI tile"),
+			"component gallery",
+		);
+		const hits = bad.slice(mark);
+		if (hits.length) failures.push(`/dev ${hits.join(" | ")}`);
+	}
 	}
 } catch (error) {
 	failures.push(String(error?.stack || error));
