@@ -42,15 +42,23 @@ with closed as (
     select date_trunc('month', max(month_end)) as month_start
     from gtm.arr_monthly
 )
-select cast(date_trunc('month', booking_date) as date) as month, sum(bookings_acv_usd) as usd, 'Bookings ACV' as measure
+select
+    strftime(date_trunc('month', booking_date), '%b %Y') as month_label,
+    cast(date_trunc('month', booking_date) as date) as month,
+    sum(bookings_acv_usd) as usd,
+    'Bookings ACV' as measure
 from gtm.bookings
 where date_trunc('month', booking_date) <= (select month_start from closed)
-group by 1
+group by 1, 2
 union all
-select cast(date_trunc('month', invoice_date) as date), sum(billed_usd), 'Billings'
+select
+    strftime(date_trunc('month', invoice_date), '%b %Y'),
+    cast(date_trunc('month', invoice_date) as date),
+    sum(billed_usd),
+    'Billings'
 from gtm.billings
 where date_trunc('month', invoice_date) <= (select month_start from closed)
-group by 1
+group by 1, 2
 order by month
 ```
 
@@ -108,28 +116,48 @@ where open_month.month is not null
 
 <BarChart
     data={monthly}
-    x=month
+    x=month_label
     y=usd
     series=measure
     seriesOrder={['Bookings ACV', 'Billings']}
     type=grouped
     yFmt=usd1m
-    xFmt=shortdate
+    sort=false
 />
 
 ```sql status_counts
 select
-    status,
+    case status
+        when 'on_schedule' then 'On schedule'
+        when 'under_billed' then 'Under billed'
+        when 'over_billed' then 'Over billed'
+        when 'cancelled' then 'Cancelled'
+        when 'draft' then 'Draft'
+    end as status,
     count(*) as orders,
     sum(contract_value_usd) as contract_value_usd,
-    sum(variance_usd) as variance_usd
+    case
+        when sum(variance_usd) is null then null
+        when abs(sum(variance_usd)) < 50000 then '$0'
+        else (case when sum(variance_usd) < 0 then '-' else '' end)
+            || '$' || printf('%.1f', abs(sum(variance_usd)) / 1000000.0) || 'M'
+    end as variance_usd
 from gtm.bookings_to_billings
 group by status
 order by contract_value_usd desc
 ```
 
 ```sql status_leader
-select status, count(*) as orders, sum(contract_value_usd) as contract_value_usd
+select
+    case status
+        when 'on_schedule' then 'On schedule'
+        when 'under_billed' then 'Under billed'
+        when 'over_billed' then 'Over billed'
+        when 'cancelled' then 'Cancelled'
+        when 'draft' then 'Draft'
+    end as status,
+    count(*) as orders,
+    sum(contract_value_usd) as contract_value_usd
 from gtm.bookings_to_billings
 group by status
 order by orders desc
@@ -142,7 +170,7 @@ limit 1
     <Column id=status title="Status"/>
     <Column id=orders title="Orders" fmt=num0/>
     <Column id=contract_value_usd title="Contract value" fmt=usd1m/>
-    <Column id=variance_usd title="Variance" fmt=usd1m/>
+    <Column id=variance_usd title="Variance"/>
 </DataTable>
 
 ```sql exceptions

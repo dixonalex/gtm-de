@@ -60,15 +60,15 @@ where latest.rn = 1
 ```
 
 ```sql arr_stack
-select month_end, 'Seats' as product, sum(seats_arr_usd) as arr_usd
+select strftime(month_end, '%b %Y') as month_label, month_end, 'Seats' as product, sum(seats_arr_usd) as arr_usd
 from gtm.arr_monthly
 group by month_end
 union all
-select month_end, 'Support', sum(support_arr_usd)
+select strftime(month_end, '%b %Y'), month_end, 'Support', sum(support_arr_usd)
 from gtm.arr_monthly
 group by month_end
 union all
-select month_end, 'Commit', sum(commit_arr_usd)
+select strftime(month_end, '%b %Y'), month_end, 'Commit', sum(commit_arr_usd)
 from gtm.arr_monthly
 group by month_end
 order by month_end, product
@@ -78,13 +78,13 @@ order by month_end, product
 
 <BarChart
     data={arr_stack}
-    x=month_end
+    x=month_label
     y=arr_usd
     series=product
     seriesOrder={['Seats', 'Support', 'Commit']}
     type=stacked
     yFmt=usd1m
-    xFmt=shortdate
+    sort=false
     legend=true
 />
 
@@ -95,7 +95,7 @@ select
         cast(epoch(month_end) as bigint),
         strftime(month_end, '%Y-%m-%d')
     ) as month_key,
-    strftime(month_end, '%Y-%m-%d') as month_end
+    strftime(month_end, '%b %Y') as month_label
 from gtm.arr_monthly
 group by month_end
 order by month_key
@@ -105,7 +105,7 @@ order by month_key
     data={bridge_months}
     name=month_bridge
     value=month_key
-    label=month_end
+    label=month_label
     title="Bridge month"
     defaultValue={[]}
 />
@@ -188,7 +188,7 @@ group by month_end
 />
 
 ```sql overage
-select month_end, sum(usage_overage_run_rate_usd) as usage_overage_run_rate_usd
+select strftime(month_end, '%b %Y') as month_label, month_end, sum(usage_overage_run_rate_usd) as usage_overage_run_rate_usd
 from gtm.arr_monthly
 group by month_end
 order by month_end
@@ -204,10 +204,10 @@ where month_end = (select max(month_end) from gtm.arr_monthly)
 
 <LineChart
     data={overage}
-    x=month_end
+    x=month_label
     y=usage_overage_run_rate_usd
     yFmt=usd1m
-    xFmt=shortdate
+    sort=false
     legend=false
     lineColor=#334155
 />

@@ -60,7 +60,17 @@ order by connector
 </DataTable>
 
 ```sql row_freshness
-select object_name, max_loaded_at, age_hours, sla, status
+select
+    case object_name
+        when 'opportunity' then 'Opportunity'
+        when 'opportunity_history' then 'Opportunity history'
+        when 'invoice' then 'Invoice'
+        when 'charge' then 'Charge'
+    end as object_name,
+    max_loaded_at,
+    age_hours,
+    sla,
+    status
 from gtm.row_arrival_freshness
 order by object_name
 ```
@@ -74,7 +84,25 @@ order by object_name
 </DataTable>
 
 ```sql arrival_lag
-select week_start, object_name, p95_lag_hours
+select
+    strftime(week_start, '%Y-%m-%d') as week_start,
+    case object_name
+        when 'opportunity' then 'Opportunity'
+        when 'opportunity_history' then 'Opportunity history'
+        when 'opportunity_line_item' then 'Opportunity line'
+        when 'account' then 'Account'
+        when 'order' then 'Order'
+        when 'order_item' then 'Order item'
+        when 'quote' then 'Quote'
+        when 'quote_line_item' then 'Quote line'
+        when 'product2' then 'Product'
+        when 'pricebook2' then 'Price book'
+        when 'pricebook_entry' then 'Price book entry'
+        when 'user' then 'User'
+        when 'dated_conversion_rate' then 'Dated conversion rate'
+        else object_name
+    end as object_name,
+    p95_lag_hours
 from gtm.arrival_lag_weekly
 where week_start >= (select max(week_start) - interval '12 weeks' from gtm.arrival_lag_weekly)
 order by week_start
@@ -88,7 +116,7 @@ order by week_start
     y=p95_lag_hours
     series=object_name
     yFmt=num0
-    xFmt=shortdate
+    sort=false
     height=220
     legend=true
 />
@@ -117,15 +145,21 @@ select
         when 'closed_won_amount_line_mismatch' then 'Amount ≠ lines'
     end as exception_type,
     case
-        when age_days <= 7 then '1 · 0–7 days'
-        when age_days <= 30 then '2 · 8–30 days'
-        when age_days <= 90 then '3 · 31–90 days'
-        else '4 · 90+ days'
+        when age_days <= 7 then '0–7d'
+        when age_days <= 30 then '8–30d'
+        when age_days <= 90 then '31–90d'
+        else '90d+'
     end as age_bucket,
+    min(case
+        when age_days <= 7 then 1
+        when age_days <= 30 then 2
+        when age_days <= 90 then 3
+        else 4
+    end) as bucket_ord,
     count(*) as items
 from gtm.backlog
 group by 1, 2
-order by age_bucket
+order by bucket_ord
 ```
 
 ```sql aging_headline
@@ -150,6 +184,7 @@ limit 1
     series=exception_type
     type=grouped
     yFmt=num0
+    sort=false
     legend=true
 />
 

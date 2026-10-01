@@ -1,5 +1,5 @@
 select
-    as_of_date,
+    strftime(as_of_date, '%Y-%m-%d') as as_of_date,
     connector_id,
     case connector_id
         when 'salesforce' then 'Salesforce'

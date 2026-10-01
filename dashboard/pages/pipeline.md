@@ -48,6 +48,7 @@ group by month_end
 
 ```sql pipeline_by_forecast
 select
+    strftime(month_end, '%b %Y') as month_label,
     month_end,
     coalesce(forecast_category, 'Uncategorized') as forecast_category,
     sum(amount_usd) as pipeline_usd
@@ -60,13 +61,13 @@ order by month_end
 
 <BarChart
     data={pipeline_by_forecast}
-    x=month_end
+    x=month_label
     y=pipeline_usd
     series=forecast_category
     seriesOrder={['Pipeline', 'Best Case', 'Commit']}
     type=stacked
     yFmt=usd1m
-    xFmt=shortdate
+    sort=false
 />
 
 ```sql pipeline_by_stage
@@ -113,9 +114,9 @@ limit 1
 select
     opportunity_name,
     account_name,
-    previous_close_date,
-    close_date,
-    changed_on,
+    strftime(previous_close_date, '%Y-%m-%d') as previous_close_date,
+    strftime(close_date, '%Y-%m-%d') as close_date,
+    strftime(changed_on, '%Y-%m-%d') as changed_on,
     days_slipped,
     amount_usd
 from gtm.close_slips
