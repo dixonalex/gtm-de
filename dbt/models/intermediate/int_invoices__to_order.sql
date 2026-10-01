@@ -286,11 +286,21 @@ won_without_order as (
     select
         o.opportunity_id,
         o.close_date,
-        o.amount,
+        case
+            when lines.opportunity_id is not null then lines.line_amount
+            else o.amount
+        end as match_amount,
         o.currency_iso_code,
         a.master_account_id
     from {{ ref('stg_salesforce__opportunity') }} o
     inner join accounts a on o.account_id = a.account_id
+    left join (
+        select
+            opportunity_id,
+            sum(total_price) as line_amount
+        from {{ ref('stg_salesforce__opportunity_line_item') }}
+        group by opportunity_id
+    ) lines on o.opportunity_id = lines.opportunity_id
     where o.is_won
       and not exists (
           select 1
@@ -307,7 +317,7 @@ opportunity_ranked as (
             partition by i.invoice_id
             order by
                 abs(date_diff('day', w.close_date, cast(i.created as date))),
-                abs(i.total - w.amount),
+                abs(i.total - w.match_amount),
                 w.opportunity_id
         ) as rn
     from invoices i
@@ -320,7 +330,7 @@ opportunity_ranked as (
     where m.invoice_id is null
       and f.invoice_id is null
       and abs(date_diff('day', w.close_date, cast(i.created as date))) <= 30
-      and abs(i.total - w.amount) <= 0.01 * abs(w.amount)
+      and abs(i.total - w.match_amount) <= 0.01 * abs(w.match_amount)
 ),
 
 opportunity_match as (
