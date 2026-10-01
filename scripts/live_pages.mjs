@@ -7,8 +7,10 @@ import { readFileSync } from "node:fs";
 const debugPort = process.argv[2];
 const base = process.argv[3];
 const numbers = JSON.parse(readFileSync(process.argv[4], "utf8"));
+const basePath = process.argv[5] || "";
 const failures = [];
 const bad = [];
+const dataFetches = [];
 
 function money(value) {
 	const n = Math.abs(Number(value));
@@ -56,6 +58,13 @@ async function connect(url) {
 			if (response && response.status >= 400 && !response.url.endsWith("/favicon.ico")) {
 				bad.push(`${response.status} ${response.url}`);
 			}
+			if (response && basePath && /\.(parquet|arrow)(\?|$)/i.test(response.url)) {
+				dataFetches.push(response.url);
+				const path = new URL(response.url).pathname;
+				if (!path.startsWith(`${basePath}/`)) {
+					failures.push(`fetch outside ${basePath}: ${response.url}`);
+				}
+			}
 		}
 		const resolve = pending.get(message.id);
 		if (resolve) {
@@ -72,6 +81,48 @@ async function connect(url) {
 async function evalText(expression) {
 	const result = await send("Runtime.evaluate", { expression, returnByValue: true });
 	return result.result?.result?.value ?? "";
+}
+
+async function evalPromise(expression) {
+	const result = await send("Runtime.evaluate", {
+		expression,
+		awaitPromise: true,
+		returnByValue: true,
+	});
+	return result.result?.result?.value ?? "";
+}
+
+async function assertNav(label) {
+	if (!basePath) return;
+	const raw = await evalText(
+		`JSON.stringify([...document.querySelectorAll("a.gtm-tab, a.gtm-wordmark")].map((node) => node.getAttribute("href")))`,
+	);
+	let hrefs = [];
+	try {
+		hrefs = JSON.parse(raw || "[]");
+	} catch {
+		hrefs = [];
+	}
+	if (!hrefs.length) failures.push(`${label}: no nav links`);
+	for (const href of hrefs) {
+		if (href !== basePath && !String(href).startsWith(`${basePath}/`)) {
+			failures.push(`${label} nav ${href}`);
+		}
+	}
+}
+
+async function assertCopy() {
+	if (!basePath) return;
+	const copied = await evalPromise(`(async () => {
+		let copied = "";
+		navigator.clipboard.writeText = async (value) => { copied = String(value); };
+		const button = [...document.querySelectorAll("button")].find((node) => node.textContent.includes("Copy link to this view"));
+		if (!button) return "missing";
+		button.click();
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		return copied;
+	})()`);
+	if (!String(copied).includes(`${basePath}/`)) failures.push(`copy link: ${copied}`);
 }
 
 function tileFlash(text) {
@@ -124,6 +175,7 @@ async function navigateWatch(url, expression, predicate, label) {
 	if (!settled) failures.push(`${label}: did not settle`);
 	else if (!predicate(settled)) failures.push(`${label}: ${String(settled).replaceAll("\n", " | ").slice(0, 240)}`);
 	if (problems.length) failures.push(`${label} flash: ${[...new Set(problems)].slice(0, 3).join(" || ")}`);
+	if (settled) await assertNav(label);
 	return settled;
 }
 
@@ -172,6 +224,7 @@ const companyBookings = money(numbers.finance.bookings);
 try {
 	await connect("about:blank");
 	await navigateWatch(`${base}/`, tile("Committed ARR"), (text) => text.includes(companyArr), "default executive ARR");
+	await assertCopy();
 	await waitFor(
 		`document.body.innerText`,
 		(text) => text.includes("Company") && text.includes("Revenue review"),
@@ -267,6 +320,7 @@ try {
 	failures.push(String(error?.stack || error));
 }
 
+if (basePath && !dataFetches.length) failures.push(`no parquet or arrow fetches under ${basePath}`);
 if (bad.length) failures.push(`http ${[...new Set(bad)].slice(0, 8).join(" | ")}`);
 if (failures.length) {
 	console.error(failures.join("\n"));

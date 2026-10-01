@@ -1,5 +1,9 @@
 # Quote to cash
 
+[Live dashboard](https://dixonalex.github.io/gtm-de/)
+
+The data is a pinned synthetic snapshot as of 30 Sep 2026.
+
 [![CI](https://github.com/dixonalex/gtm-de/actions/workflows/ci.yml/badge.svg)](https://github.com/dixonalex/gtm-de/actions/workflows/ci.yml)
 
 This is a synthetic quote-to-cash warehouse and the dashboard on top of it. A generator writes a Salesforce extract and a Stripe extract, dbt-duckdb builds the models, and [Evidence](https://evidence.dev) renders five GTM pages: Executive, Sales, Deal Desk, Finance, and Data health. A few data-quality failures are planted on purpose so the health page and the finance tie-out have something real to show.

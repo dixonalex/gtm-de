@@ -1,7 +1,9 @@
 <script>
 	import { browser } from "$app/environment";
+	import { base } from "$app/paths";
 	import { EvidenceDefaultLayout } from "@evidence-dev/core-components";
 	import { showQueries } from "@evidence-dev/component-utilities/stores";
+	import { addBasePath } from "@evidence-dev/sdk/utils/svelte";
 	import { page } from "$app/stores";
 	import "./theme.css";
 
@@ -37,14 +39,21 @@
 	showQueries.set(false);
 
 	const tabs = [
-		{ label: "Executive", href: "/", test: (path) => path === "/" },
-		{ label: "Sales", href: "/sales/", test: (path) => path.startsWith("/sales") },
-		{ label: "Deal Desk", href: "/deal-desk/", test: (path) => path.startsWith("/deal-desk") },
-		{ label: "Finance", href: "/finance/", test: (path) => path.startsWith("/finance") },
-		{ label: "Data health", href: "/data-health/", test: (path) => path.startsWith("/data-health") },
+		{ label: "Executive", href: addBasePath("/"), test: (path) => path === "/" },
+		{ label: "Sales", href: addBasePath("/sales/"), test: (path) => path.startsWith("/sales") },
+		{ label: "Deal Desk", href: addBasePath("/deal-desk/"), test: (path) => path.startsWith("/deal-desk") },
+		{ label: "Finance", href: addBasePath("/finance/"), test: (path) => path.startsWith("/finance") },
+		{ label: "Data health", href: addBasePath("/data-health/"), test: (path) => path.startsWith("/data-health") },
 	];
 
-	$: path = ($page.url.pathname.replace(/\/$/, "") || "/");
+	function appPath(pathname) {
+		if (base && (pathname === base || pathname.startsWith(`${base}/`))) {
+			pathname = pathname.slice(base.length);
+		}
+		return pathname.replace(/\/$/, "") || "/";
+	}
+
+	$: path = appPath($page.url.pathname);
 </script>
 
 <svelte:head>
@@ -68,7 +77,7 @@
 >
 	<header class="gtm-nav">
 		<div class="gtm-nav-inner">
-			<a class="gtm-wordmark" href="/">GTM Data</a>
+			<a class="gtm-wordmark" href={addBasePath("/")}>GTM Data</a>
 			<nav class="gtm-tabs" aria-label="Sections">
 				{#each tabs as tab}
 					<a class="gtm-tab" href={tab.href} aria-current={tab.test(path) ? "page" : undefined}>
