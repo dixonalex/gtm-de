@@ -156,10 +156,8 @@ limit 1
 ```sql queue
 select
     q.queue_rank,
-    q.name_a,
-    q.account_id_a,
-    q.name_b,
-    q.account_id_b,
+    '<span>' || q.name_a || '</span><span style="display:none">' || q.account_id_a || '</span>' as name_a,
+    '<span>' || q.name_b || '</span><span style="display:none">' || q.account_id_b || '</span>' as name_b,
     q.name_edit_distance,
     concat_ws(
         ', ',
@@ -201,24 +199,20 @@ from config.github_repo
 {#if repo[0] && repo[0].github_repo}
 <DataTable data={queue} rows=25 search=true>
     <Column id=queue_rank title="Rank" fmt=num0/>
-    <Column id=name_a title="Account A"/>
-    <Column id=account_id_a title="Id A"/>
-    <Column id=name_b title="Account B"/>
-    <Column id=account_id_b title="Id B"/>
+    <Column id=name_a title="Account A" contentType=html wrap=true/>
+    <Column id=name_b title="Account B" contentType=html wrap=true/>
     <Column id=name_edit_distance title="Edit distance" fmt=num0/>
-    <Column id=signals title="Signals"/>
+    <Column id=signals title="Signals" wrap=true/>
     <Column id=arr_at_stake_usd title="ARR at stake" fmt=usd0k/>
     <Column id=decide_url title="Decide" contentType=link linkLabel=Decide openInNewTab=true/>
 </DataTable>
 {:else}
 <DataTable data={queue} rows=25 search=true>
     <Column id=queue_rank title="Rank" fmt=num0/>
-    <Column id=name_a title="Account A"/>
-    <Column id=account_id_a title="Id A"/>
-    <Column id=name_b title="Account B"/>
-    <Column id=account_id_b title="Id B"/>
+    <Column id=name_a title="Account A" contentType=html wrap=true/>
+    <Column id=name_b title="Account B" contentType=html wrap=true/>
     <Column id=name_edit_distance title="Edit distance" fmt=num0/>
-    <Column id=signals title="Signals"/>
+    <Column id=signals title="Signals" wrap=true/>
     <Column id=arr_at_stake_usd title="ARR at stake" fmt=usd0k/>
 </DataTable>
 {/if}

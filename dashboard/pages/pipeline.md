@@ -130,8 +130,8 @@ from gtm.close_slips
 ## <Value data={slip_count} column=deals fmt=num0 /> deals slipped CloseDate this quarter, <Value data={slip_count} column=amount_usd fmt=usd1m /> of pipeline
 
 <DataTable data={slips} rows=20 search=true emptyMessage="No CloseDate slips in the latest quarter.">
-    <Column id=opportunity_name title="Opportunity"/>
-    <Column id=account_name title="Account"/>
+    <Column id=opportunity_name title="Opportunity" wrap=true/>
+    <Column id=account_name title="Account" wrap=true/>
     <Column id=previous_close_date title="Previous close"/>
     <Column id=close_date title="New close"/>
     <Column id=changed_on title="Changed"/>

@@ -239,8 +239,7 @@ joined as (
     left join gtm.dim_account p on a.ultimate_parent_account_id = p.account_id
 )
 select
-    customer_name,
-    customer_id,
+    '<span>' || customer_name || '</span><span style="display:none">' || customer_id || '</span>' as customer_name,
     sum(committed_arr_usd) as committed_arr_usd
 from joined
 group by customer_name, customer_id
@@ -249,7 +248,6 @@ limit 20
 ```
 
 <DataTable data={top_customers} rows=20 search=true>
-    <Column id=customer_name title="Customer"/>
-    <Column id=customer_id title="Id"/>
+    <Column id=customer_name title="Customer" contentType=html wrap=true/>
     <Column id=committed_arr_usd title="Committed ARR" fmt=usd1m/>
 </DataTable>

@@ -147,12 +147,11 @@ limit 1
 
 ```sql exceptions
 select
-    case exception_type
+    '<span>' || case exception_type
         when 'closed_won_without_order' then 'Won without order'
         when 'billed_without_order' then 'Billed without order'
         when 'closed_won_amount_line_mismatch' then 'Amount ≠ lines'
-    end as exception,
-    entity_id,
+    end || '</span><span style="display:none">' || entity_id || '</span>' as exception,
     age_days,
     usd_at_stake
 from gtm.exceptions
@@ -167,8 +166,7 @@ from gtm.exceptions
 ## <Value data={exception_total} column=items fmt=num0 /> quote-to-cash exceptions, <Value data={exception_total} column=usd_at_stake fmt=usd1m /> at stake
 
 <DataTable data={exceptions} rows=20 search=true>
-    <Column id=exception title="Exception"/>
-    <Column id=entity_id title="Id"/>
+    <Column id=exception title="Exception" contentType=html wrap=true/>
     <Column id=age_days title="Age (days)" fmt=num0/>
     <Column id=usd_at_stake title="USD at stake" fmt=usd0k/>
 </DataTable>
