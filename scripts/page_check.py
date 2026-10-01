@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 import os
-import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -59,32 +59,65 @@ def require(html: str, needles: list[str], page: str) -> list[str]:
     return missing
 
 
+def chrome_executable() -> str:
+    explicit = os.environ.get("CHROME_PATH")
+    if explicit:
+        return explicit
+    mac = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    if Path(mac).is_file():
+        return mac
+    for name in ("google-chrome", "chromium"):
+        found = shutil.which(name)
+        if found:
+            return found
+    sys.exit("chrome not found: set CHROME_PATH or install Google Chrome")
+
+
+def node_executable() -> str:
+    explicit = os.environ.get("NODE")
+    if explicit:
+        return explicit
+    found = shutil.which("node")
+    if not found:
+        sys.exit("node not found: set NODE or install Node")
+    return found
+
+
+def headless_requested() -> bool:
+    return "--headless" in sys.argv[1:] or bool(os.environ.get("CI"))
+
+
 def live_pages(numbers: dict) -> list[str]:
-    """Serve build/ statically and exercise every page in headed Chrome."""
+    """Serve build/ statically and exercise every page in Chrome."""
     port = "8765"
     debug = "9223"
+    headless = headless_requested()
     server = subprocess.Popen(
         [sys.executable, "-m", "http.server", port, "--bind", "127.0.0.1"],
         cwd=BUILD,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    chrome = chrome_executable()
     profile = Path("/tmp/gtm-page-check-chrome")
+    command = [
+        chrome,
+        f"--user-data-dir={profile}",
+        "--disable-gpu",
+        "--no-first-run",
+        f"--remote-debugging-port={debug}",
+        "--window-size=1440,900",
+    ]
+    if headless:
+        # GitHub-hosted runners start Chrome as root, which refuses the sandbox.
+        command += ["--headless=new", "--no-sandbox"]
+    command.append("about:blank")
     browser = subprocess.Popen(
-        [
-            chrome,
-            f"--user-data-dir={profile}",
-            "--disable-gpu",
-            "--no-first-run",
-            f"--remote-debugging-port={debug}",
-            "--window-size=1440,900",
-            "about:blank",
-        ],
+        command,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    node = Path.home() / ".nvm/versions/node/v22.17.0/bin/node"
+    node = node_executable()
     script = ROOT / "scripts" / "live_pages.mjs"
     try:
         result = subprocess.run(
@@ -109,9 +142,8 @@ def live_pages(numbers: dict) -> list[str]:
 
 def main() -> int:
     env = os.environ.copy()
-    node = Path.home() / ".nvm/versions/node/v22.17.0/bin"
-    if node.exists():
-        env["PATH"] = str(node) + os.pathsep + env.get("PATH", "")
+    node_dir = str(Path(node_executable()).resolve().parent)
+    env["PATH"] = node_dir + os.pathsep + env.get("PATH", "")
     subprocess.run(["npm", "run", "sources:strict"], cwd=ROOT / "dashboard", env=env, check=True)
     subprocess.run(
         ["npm", "run", "build:strict"],

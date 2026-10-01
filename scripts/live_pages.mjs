@@ -1,5 +1,5 @@
 /**
- * Headed Chrome checks against a static build.
+ * Chrome checks against a static build.
  * argv: debugPort baseUrl numbersPath
  */
 import { readFileSync } from "node:fs";
