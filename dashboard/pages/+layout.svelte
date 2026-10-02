@@ -111,6 +111,9 @@
 					</a>
 				{/each}
 			</nav>
+			<p class="gtm-note">
+				Synthetic data · pinned to 30 Sep 2026 · <a href="https://github.com/dixonalex/gtm-de">Source on GitHub</a>
+			</p>
 		</div>
 	</header>
 	<div slot="content">

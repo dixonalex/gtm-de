@@ -43,7 +43,7 @@ body,
 }
 
 .gtm-nav {
-	height: var(--nav-h);
+	min-height: var(--nav-h);
 	border-bottom: 1px solid var(--color-rule);
 	background: var(--color-ground);
 	position: sticky;
@@ -58,10 +58,12 @@ body,
 }
 
 .gtm-nav-inner {
-	height: 100%;
+	min-height: var(--nav-h);
 	display: flex;
 	align-items: center;
-	gap: 32px;
+	flex-wrap: wrap;
+	column-gap: 32px;
+	row-gap: 0;
 }
 
 .gtm-wordmark {
@@ -76,7 +78,7 @@ body,
 .gtm-tabs {
 	display: flex;
 	align-items: stretch;
-	height: 100%;
+	height: var(--nav-h);
 	gap: 4px;
 }
 
@@ -96,6 +98,29 @@ body,
 .gtm-tab[aria-current="page"] {
 	color: var(--color-ink);
 	border-bottom-color: var(--color-ink);
+}
+
+.gtm-note {
+	margin: 0 0 0 auto;
+	font-size: 12px;
+	line-height: 1.3;
+	font-weight: 400;
+	color: var(--color-ink-muted);
+	white-space: nowrap;
+}
+
+.gtm-note a {
+	color: inherit;
+	font-weight: 400;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+/* The note leaves the tab row once the 1120 column cannot hold it. */
+@media (max-width: 960px) {
+	.gtm-note {
+		padding-bottom: 10px;
+	}
 }
 
 .gtm-frame {
@@ -409,6 +434,12 @@ h1.title {
 		flex: 0 0 auto;
 		min-height: 44px;
 		padding: 0 12px;
+	}
+
+	.gtm-note {
+		margin: 0;
+		padding: 2px 16px 12px;
+		white-space: normal;
 	}
 
 	.gtm-frame {
