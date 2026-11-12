@@ -68,7 +68,8 @@ jobs:
         if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         with:
           name: pages-site
-          path: dashboard/build/gtm-de
+          # The dashboard now lives at dixon.works/alpha-corp/. Pages serves redirects only.
+          path: redirect
 
   deploy:
     if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
