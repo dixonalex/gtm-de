@@ -1,6 +1,6 @@
 # GTM Data Engineering
 
-![CI](https://github.com/dixonalex/gtm-de/actions/workflows/ci.yml/badge.svg) · [Live dashboard](https://dixonalex.github.io/gtm-de/) · data pinned to 30 Sep 2026
+![CI](https://github.com/dixonalex/gtm-de/actions/workflows/ci.yml/badge.svg) · [Live dashboard](https://dixon.works/alpha-corp/) · data pinned to 30 Sep 2026
 
 Quote-to-cash reporting for a SaaS GTM team. Every number is shown against something: plan, last month, or a tolerance.
 
@@ -49,7 +49,7 @@ Full system: [docs/design](docs/design/README.md) · [PDF](docs/design/design-sy
 
 - Python generates synthetic Salesforce and Stripe data.
 - dbt and DuckDB model it into facts and one rollup table per page. Rates are calculated in SQL so the dashboard only filters.
-- The dashboard is Evidence, deployed to GitHub Pages as a static site.
+- The dashboard in this repo is Evidence. CI still builds and checks it. The published version was rebuilt at [dixon.works/alpha-corp](https://dixon.works/alpha-corp/), and GitHub Pages now serves redirects to it from `redirect/`.
 - 333 dbt tests and freshness checks. Two failures are planted on purpose (stale Stripe sync, JPY tie-out) and show up on the Finance and Data health pages.
 - CI checks the numbers on every page against a spec and loads each page in a headless browser, at desktop width and at 390×844 and 360×800.
 
